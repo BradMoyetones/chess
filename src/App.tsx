@@ -186,7 +186,7 @@ export default function ChessGame() {
 
             const move = makeAMove({
                 from: moveFrom,
-                to: sq,
+                to: sq!,
                 promotion: "q",
             })
 
@@ -226,7 +226,7 @@ export default function ChessGame() {
     function onPieceDrop({ sourceSquare, targetSquare }: PieceDropHandlerArgs) {
         const move = makeAMove({
             from: sourceSquare,
-            to: targetSquare,
+            to: targetSquare!,
             promotion: "q",
         })
 
