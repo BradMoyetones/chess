@@ -41,7 +41,7 @@ import {
     type SquareHandlerArgs
 } from "react-chessboard"
 
-const INITIAL_TIME = 10 * 60 // 10 minutos en segundos (Proximamente en configuraciones con Sheet de Shadcn)
+const INITIAL_TIME = 30 * 60 // 10 minutos en segundos (Proximamente en configuraciones con Sheet de Shadcn)
 
 export default function ChessGame() {
     const { resolvedTheme, setTheme } = useTheme()
