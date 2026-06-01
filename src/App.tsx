@@ -174,7 +174,7 @@ export default function ChessGame() {
 
     function onSquareClick({ square }: SquareHandlerArgs) {
         const sq = square as Square
-        
+
         // Si ya hay una pieza seleccionada, intentar mover
         if (moveFrom) {
             // Si clicamos la misma casilla, deseleccionar
@@ -245,7 +245,7 @@ export default function ChessGame() {
         const gameCopy = new Chess()
         gameCopy.loadPgn(game.pgn())
         const undoneMove = gameCopy.undo()
-        
+
         if (undoneMove) {
             setGame(gameCopy)
             // Actualizar last move squares con el movimiento anterior si existe
