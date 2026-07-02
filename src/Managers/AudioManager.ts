@@ -14,27 +14,38 @@ export class AudioManager {
     }
 
     /**
-     * Aquí conectamos los cables del EventBus con nuestras acciones
+     * Aquí conectamos los cables del EventBus con nuestras acciones.
+     * Expandido para cubrir todos los eventos sonoros del framework.
      */
     private subscribeToEvents(): void {
-        // Cuando alguien mueva una pieza, reproducimos el sonido de movimiento
+        // Movimiento normal
         this.eventBus.on('PIECE_MOVED', () => {
             this.playSound('move');
         });
 
-        // Cuando haya una captura, reproducimos el sonido de captura
+        // Captura
         this.eventBus.on('PIECE_CAPTURED', () => {
             this.playSound('capture');
         });
 
-        // Cuando alguien cante jaque
+        // Jaque
         this.eventBus.on('CHECK', () => {
             this.playSound('check');
         });
 
-        // Cuando la partida termine
+        // Fin de partida
         this.eventBus.on('GAME_OVER', () => {
             this.playSound('gameEnd');
+        });
+
+        // Enroque — usa el sonido de movimiento por defecto
+        this.eventBus.on('CASTLED', () => {
+            this.playSound('move');
+        });
+
+        // Promoción — usa el sonido de movimiento por defecto
+        this.eventBus.on('PROMOTED', () => {
+            this.playSound('move');
         });
     }
 
