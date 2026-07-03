@@ -385,6 +385,26 @@ export class ChessEngine {
         return (moves as Move[]).map(m => m.to);
     }
 
+    /**
+     * Retorna destinos de pre-move (pseudo-legales asumiendo que fuera su turno).
+     */
+    public getPremoveDestinationsFor(square: string): string[] {
+        const piece = this.chess.get(square as Square);
+        if (!piece) return [];
+        const originalTurn = this.chess.turn();
+        
+        if (piece.color === originalTurn) {
+            return this.getLegalMovesFor(square);
+        }
+        
+        // Cambiar temporalmente el turno para generar movimientos
+        this.chess.setTurn(piece.color);
+        const moves = this.getLegalMovesFor(square);
+        this.chess.setTurn(originalTurn);
+        
+        return moves;
+    }
+
     /** Retorna TODOS los movimientos legales con datos completos */
     public getAllLegalMoves(): Move[] {
         return this.chess.moves({ verbose: true }) as Move[];

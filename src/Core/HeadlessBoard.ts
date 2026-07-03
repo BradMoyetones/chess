@@ -72,7 +72,7 @@ export class HeadlessBoard {
                 lastMove,
                 selectedSquare,
                 validDestinations,
-                premoves: [],       // Fase 2.5
+                premoves: this.interactionManager?.getPremoves() || [],
                 annotations,
             },
             history: {
@@ -114,6 +114,7 @@ export class HeadlessBoard {
         validDestinations: string[]
     ): SquareData[][] {
         const grid: SquareData[][] = [];
+        const premoves = this.interactionManager?.getPremoves() || [];
 
         for (let r = 0; r < 8; r++) {
             const row: SquareData[] = [];
@@ -145,8 +146,8 @@ export class HeadlessBoard {
                     isLastMoveDestination: lastMove?.to === algebraic,
                     isSelected: selectedSquare === algebraic,
                     isValidDestination: validDestinations.includes(algebraic),
-                    isPremoveOrigin: false,      // Fase 2.5
-                    isPremoveDestination: false,  // Fase 2.5
+                    isPremoveOrigin: premoves.some(p => p.from === algebraic),
+                    isPremoveDestination: premoves.some(p => p.to === algebraic),
                 });
             }
             grid.push(row);

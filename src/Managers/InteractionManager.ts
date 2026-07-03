@@ -1,15 +1,21 @@
 // src/Managers/InteractionManager.ts
 // Puente entre el input del usuario y la lógica del motor.
-// Gestiona: selección de casillas, destinos legales, y click-to-move.
+// Gestiona: selección de casillas, destinos legales, click-to-move y pre-moves.
 
 import { ChessEngine } from '../Core/ChessEngine';
 import { EventBus } from '../Core/EventBus';
+
+export interface Premove {
+    from: string;
+    to: string;
+}
 
 export class InteractionManager {
     private engine: ChessEngine;
     private eventBus: EventBus;
     private selectedSquare: string | null = null;
     private validDestinations: string[] = [];
+    private premoveQueue: Premove[] = [];
 
     constructor(engine: ChessEngine, eventBus: EventBus) {
         this.engine = engine;
@@ -19,20 +25,36 @@ export class InteractionManager {
         this.eventBus.on('NAVIGATE_TO_MOVE', () => this.clearSelection());
         this.eventBus.on('POSITION_LOADED', () => this.clearSelection());
         this.eventBus.on('GAME_RESET', () => this.clearSelection());
+
+        // Intentar ejecutar pre-moves cuando el tablero se actualiza
+        this.eventBus.on('BOARD_UPDATED', () => this.tryExecutePremove());
     }
 
     /**
      * Maneja el click/tap en una casilla.
      * 
      * Lógica:
-     * 1. Si hay selección y la casilla es destino legal -> ejecutar movimiento
-     * 2. Si es pieza propia -> seleccionar y calcular legales
+     * 1. Si hay selección y la casilla es destino legal -> ejecutar movimiento o encolar pre-move
+     * 2. Si es pieza -> seleccionar y calcular legales (o pre-legales)
      * 3. Si no -> deseleccionar
      */
     public selectSquare(square: string): void {
-        // Caso 1: Ya hay selección y este square es un destino válido -> mover
+        // Caso 1: Ya hay selección y este square es un destino válido -> mover o pre-mover
         if (this.selectedSquare && this.validDestinations.includes(square)) {
-            this.engine.attemptMove(this.selectedSquare, square);
+            const piece = this.engine.getPieceAt(this.selectedSquare);
+            const isPremove = this.engine.getMode() === 'PLAY' && piece && piece.color !== this.engine.getTurn();
+
+            if (isPremove) {
+                this.premoveQueue.push({ from: this.selectedSquare, to: square });
+                this.eventBus.emit('PREMOVE_QUEUED', { from: this.selectedSquare, to: square });
+            } else {
+                // Si hacemos un movimiento normal (o cambiamos de opinion), limpiamos los premoves
+                if (this.premoveQueue.length > 0) {
+                    this.clearPremoves();
+                }
+                this.engine.attemptMove(this.selectedSquare, square);
+            }
+            
             this.clearSelection();
             return;
         }
@@ -43,27 +65,27 @@ export class InteractionManager {
             const turn = this.engine.getTurn();
             const mode = this.engine.getMode();
 
-            // En PLAY solo seleccionar piezas del turno actual
-            // En ANALYSIS/SETUP seleccionar cualquier pieza
             if (mode !== 'PLAY' || piece.color === turn) {
                 this.selectedSquare = square;
                 this.validDestinations = this.engine.getLegalMovesFor(square);
-
-                this.eventBus.emit('SQUARE_SELECTED', {
-                    square,
-                    legalMoves: this.validDestinations
-                });
-                return;
+            } else {
+                // Es PLAY pero no es su turno -> Pre-move selection
+                this.selectedSquare = square;
+                this.validDestinations = this.engine.getPremoveDestinationsFor(square);
             }
+
+            this.eventBus.emit('SQUARE_SELECTED', {
+                square,
+                legalMoves: this.validDestinations
+            });
+            return;
         }
 
-        // Caso 3: Click en vacío o pieza enemiga sin selección previa -> deseleccionar
+        // Caso 3: Click en vacío sin selección previa -> deseleccionar
         this.clearSelection();
     }
 
-    /**
-     * Limpia la selección actual.
-     */
+    /** Limpia la selección actual */
     public clearSelection(): void {
         if (this.selectedSquare !== null) {
             this.selectedSquare = null;
@@ -72,13 +94,59 @@ export class InteractionManager {
         }
     }
 
-    /** Retorna la casilla seleccionada actualmente */
+    /** Limpia la cola de pre-moves */
+    public clearPremoves(): void {
+        if (this.premoveQueue.length > 0) {
+            this.premoveQueue = [];
+            this.eventBus.emit('PREMOVE_CANCELLED', {});
+        }
+    }
+
+    /**
+     * Intenta ejecutar el siguiente pre-move de la cola si es el turno correcto.
+     */
+    private tryExecutePremove(): void {
+        if (this.premoveQueue.length === 0) return;
+        
+        // Si el modo ya no es PLAY, cancelar
+        if (this.engine.getMode() !== 'PLAY') {
+            this.clearPremoves();
+            return;
+        }
+
+        const nextPremove = this.premoveQueue[0];
+        const piece = this.engine.getPieceAt(nextPremove.from);
+        
+        // Verificamos si la pieza sigue allí y ahora SÍ es su turno
+        if (piece && piece.color === this.engine.getTurn()) {
+            this.premoveQueue.shift(); // Sacar de la cola
+            
+            // Intentar ejecutar
+            const result = this.engine.attemptMove(nextPremove.from, nextPremove.to);
+            if (result.success) {
+                this.eventBus.emit('PREMOVE_EXECUTED', { from: nextPremove.from, to: nextPremove.to });
+                // Si aún hay más premoves (algo raro porque los turnos alternan, pero por si acaso)
+                // se ejecutarán en el siguiente BOARD_UPDATED
+            } else {
+                // Si falló (ej: quedó en jaque, pieza bloqueada), cancelar todo
+                this.clearPremoves();
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════
+    //  GETTERS PARA HEADLESS BOARD
+    // ═══════════════════════════════════════════════
+
     public getSelectedSquare(): string | null {
         return this.selectedSquare;
     }
 
-    /** Retorna los destinos legales para la pieza seleccionada */
     public getValidDestinations(): string[] {
         return this.validDestinations;
+    }
+
+    public getPremoves(): Premove[] {
+        return this.premoveQueue;
     }
 }

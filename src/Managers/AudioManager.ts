@@ -47,6 +47,19 @@ export class AudioManager {
         this.eventBus.on('PROMOTED', () => {
             this.playSound('move');
         });
+
+        // Puzzles
+        this.eventBus.on('PUZZLE_CORRECT_MOVE', () => {
+            this.playSound('move');
+        });
+
+        this.eventBus.on('PUZZLE_FAILED', () => {
+            this.playSound('check');
+        });
+
+        this.eventBus.on('PUZZLE_COMPLETED', () => {
+            this.playSound('gameEnd');
+        });
     }
 
     /**

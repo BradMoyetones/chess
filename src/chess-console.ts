@@ -7,6 +7,8 @@ import { HeadlessBoard } from "./Core/HeadlessBoard";
 import { InteractionManager } from "./Managers/InteractionManager";
 import { AnnotationManager } from "./Managers/AnnotationManager";
 import { HistoryManager } from "./Managers/HistoryManager";
+import { PuzzleValidator } from "./Managers/PuzzleValidator";
+import { StockfishAdapter } from "./Adapters/StockfishAdapter";
 import { ThemeConfig } from "./Types";
 import type { BoardSnapshot, SquareData } from "./Types/board.types";
 import * as readline from 'node:readline';
@@ -49,6 +51,8 @@ const audioManager = new AudioManager(eventBus, themeManager);
 const interactionManager = new InteractionManager(engine, eventBus);
 const annotationManager = new AnnotationManager(eventBus);
 const historyManager = new HistoryManager(engine, eventBus);
+const puzzleValidator = new PuzzleValidator(engine, eventBus);
+const stockfishAdapter = new StockfishAdapter(eventBus);
 
 // HeadlessBoard con todas las dependencias opcionales conectadas
 const board = new HeadlessBoard(engine, {
@@ -234,19 +238,95 @@ function promptMove() {
             } else {
                 lastMessage = chalk.yellow("⚠️ Modos válidos: play, analysis, setup");
             }
+        } else if (input === 'eval') {
+            if (!stockfishAdapter.isInitialized()) {
+                lastMessage = chalk.yellow("⏳ Iniciando Stockfish...");
+                stockfishAdapter.init({ defaultDepth: 15, binaryPath: 'stockfish' })
+                    .then(() => {
+                        lastMessage = chalk.cyan("🧠 Evaluando posición...");
+                        printBoardToConsole(board.getBoardSnapshot());
+                        return stockfishAdapter.evaluate(engine.getFen());
+                    })
+                    .then(evalData => {
+                        const score = evalData.mate ? `M${evalData.mate}` : `${(evalData.score / 100).toFixed(2)}`;
+                        lastMessage = chalk.green(`🧠 Evaluación: ${score} | Mejor mov: ${evalData.bestMove} | Prof: ${evalData.depth}`);
+                        printBoardToConsole(board.getBoardSnapshot());
+                        promptMove();
+                    })
+                    .catch(err => {
+                        lastMessage = chalk.red(`❌ Error Stockfish: ${err.message} (¿Tienes 'stockfish' en tu PATH?)`);
+                        printBoardToConsole(board.getBoardSnapshot());
+                        promptMove();
+                    });
+                return; // Wait for promise
+            } else {
+                lastMessage = chalk.cyan("🧠 Evaluando posición...");
+                stockfishAdapter.evaluate(engine.getFen())
+                    .then(evalData => {
+                        const score = evalData.mate ? `M${evalData.mate}` : `${(evalData.score / 100).toFixed(2)}`;
+                        lastMessage = chalk.green(`🧠 Evaluación: ${score} | Mejor mov: ${evalData.bestMove} | Prof: ${evalData.depth}`);
+                        printBoardToConsole(board.getBoardSnapshot());
+                        promptMove();
+                    });
+                return;
+            }
+        } else if (parts[0] === 'puzzle' && parts[1]) {
+            const MOCK_PUZZLES: Record<string, any> = {
+                "1": { id: "1", fen: "6k1/5ppp/8/7Q/8/8/8/6K1 w - - 0 1", solution: ["Qxh7+", "Kf8", "Qh8+"], playerColor: "w" },
+                "2": { id: "2", fen: "6k1/8/8/8/8/8/P7/K7 w - - 0 1", solution: ["Kb1", "Kg7"], playerColor: "b" }
+            };
+            const p = MOCK_PUZZLES[parts[1]];
+            if (p) {
+                puzzleValidator.loadPuzzle(p);
+                lastMessage = chalk.cyan(`🧩 Puzzle ${p.id} cargado. ¡A jugar!`);
+            } else {
+                lastMessage = chalk.yellow(`⚠️ Puzzle no encontrado. Puzzles disp: 1, 2`);
+            }
         } else if (parts.length === 2) {
-            const result = board.handleMove(parts[0], parts[1]);
-            if (!result.success) {
-                lastMessage = chalk.red(`❌ Movimiento inválido: ${result.reason}`);
+            // Si hay un puzzle activo, interceptar validación
+            if (puzzleValidator.isActive()) {
+                const moveSan = parts.join(''); // Ej: "e2e4" pero nosotros necesitamos SAN. En consola es dificil.
+                // Mejor dejemos que handleMove convierta e2 e4, y luego vemos.
+                // Wait, move validation in PuzzleValidator expects SAN like "Qxh7+".
+                // This console uses "h5 h7" (from to). Let's convert from/to -> SAN.
+                // chess.js moves() can give us the SAN.
+                const moves = engine.getAllLegalMoves();
+                const move = moves.find(m => m.from === parts[0] && m.to === parts[1]);
+                if (move) {
+                    const result = puzzleValidator.validatePlayerMove(move.san);
+                    if (result === 'correct') {
+                        board.handleMove(parts[0], parts[1]);
+                        // el oponente responde automaticamente, no necesitamos llamar handleMove para él porque PuzzleValidator usa attemptMove
+                    } else {
+                        lastMessage = chalk.red(`❌ Movimiento incorrecto para el puzzle.`);
+                    }
+                } else {
+                    lastMessage = chalk.red(`❌ Movimiento ilegal.`);
+                }
+            } else {
+                const result = board.handleMove(parts[0], parts[1]);
+                if (!result.success) {
+                    lastMessage = chalk.red(`❌ Movimiento inválido: ${result.reason}`);
+                }
             }
         } else if (parts.length === 3 && parts[2].length === 1) {
             // Movimiento con promoción: "e7 e8 q"
-            const result = board.handleMove(parts[0], parts[1], parts[2]);
-            if (!result.success) {
-                lastMessage = chalk.red(`❌ Movimiento inválido: ${result.reason}`);
+            if (puzzleValidator.isActive()) {
+                const moves = engine.getAllLegalMoves();
+                const move = moves.find(m => m.from === parts[0] && m.to === parts[1] && m.promotion === parts[2]);
+                if (move) {
+                    if (puzzleValidator.validatePlayerMove(move.san) === 'correct') {
+                        board.handleMove(parts[0], parts[1], parts[2]);
+                    }
+                }
+            } else {
+                const result = board.handleMove(parts[0], parts[1], parts[2]);
+                if (!result.success) {
+                    lastMessage = chalk.red(`❌ Movimiento inválido: ${result.reason}`);
+                }
             }
         } else {
-            lastMessage = chalk.yellow("⚠️ Formato: 'e2 e4', 'undo', 'redo', 'start', 'end', 'fen <fen>', 'mode <play|analysis|setup>'");
+            lastMessage = chalk.yellow("⚠️ Formato: 'e2 e4', 'undo', 'redo', 'start', 'end', 'fen <fen>', 'mode <play|analysis|setup>', 'puzzle <id>', 'eval'");
         }
 
         printBoardToConsole(board.getBoardSnapshot());
