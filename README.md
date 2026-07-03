@@ -43,9 +43,15 @@ https://github.com/thomas-mauran/chess-tui
 To run the advanced console example and play a game:
 
 1. Install dependencies:
-   npm install
+
+```bash
+npm install
+```
 
 2. Run the TUI script:
-   npm run play:tui
+
+```bash
+npm run play:tui
+```
 
 Or on Windows, simply execute the `play-tui.bat` file provided in the root directory.
