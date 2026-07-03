@@ -36,8 +36,9 @@ export class EventBus {
      * Previene memory leaks al destruir componentes.
      */
     public off<K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>): void {
-        if (!this.listeners[event]) return;
-        this.listeners[event] = this.listeners[event]!.filter(cb => cb !== callback);
+        const list = this.listeners[event];
+        if (!list) return;
+        (this.listeners[event] as EventCallback<AppEvents[K]>[]) = list.filter(cb => cb !== callback);
     }
 
     /**
