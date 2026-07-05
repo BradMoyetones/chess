@@ -7,17 +7,25 @@ import { ChessEngine } from '../Core/ChessEngine';
 import { EventBus } from '../Core/EventBus';
 import type { PuzzleConfig, PuzzleState } from '../Types/puzzle.types';
 import type { Color } from 'chess.js';
+import { Service, Inject, Container } from '../Decorators/di.decorators';
 
+/**
+ * @class PuzzleValidator
+ * @description Validador de rompecabezas, maneja la progresión de los mismos.
+ */
+@Service()
 export class PuzzleValidator {
+    @Inject(ChessEngine)
+    private engine!: ChessEngine;
+
+    @Inject(EventBus)
+    private eventBus!: EventBus;
+
     private config: PuzzleConfig | null = null;
     private state: PuzzleState;
-    private engine: ChessEngine;
-    private eventBus: EventBus;
     private originalFen: string = '';
 
-    constructor(engine: ChessEngine, eventBus: EventBus) {
-        this.engine = engine;
-        this.eventBus = eventBus;
+    constructor() {
         this.state = this.createEmptyState();
     }
 
@@ -245,7 +253,8 @@ export class PuzzleValidator {
 
         // Determinar si el primer movimiento de la solución es del oponente o del jugador
         // basándonos en el FEN original (quién tiene el turno)
-        const tempEngine = new ChessEngine(new EventBus(), this.originalFen);
+        const tempEngine = Container.resolve(ChessEngine);
+        tempEngine.initialize(this.originalFen);
         const firstMoveIsOpponent = tempEngine.getTurn() !== this.config.playerColor;
 
         if (firstMoveIsOpponent) {

@@ -4,23 +4,36 @@
 
 import { ChessEngine } from '../Core/ChessEngine';
 import { EventBus } from '../Core/EventBus';
+import { Service, Inject } from '../Decorators/di.decorators';
 
 export interface Premove {
     from: string;
     to: string;
 }
 
+/**
+ * @class InteractionManager
+ * @description Maneja el estado de interacción del usuario con el tablero (click, drag, etc).
+ */
+@Service()
 export class InteractionManager {
-    private engine: ChessEngine;
-    private eventBus: EventBus;
+    @Inject(ChessEngine)
+    private engine!: ChessEngine;
+
+    @Inject(EventBus)
+    private eventBus!: EventBus;
+
     private selectedSquare: string | null = null;
     private validDestinations: string[] = [];
     private premoveQueue: Premove[] = [];
 
-    constructor(engine: ChessEngine, eventBus: EventBus) {
-        this.engine = engine;
-        this.eventBus = eventBus;
+    constructor() {
+        // La inicialización se maneja mediante DI, pero necesitamos registrar los eventos
+        // Nota: En un sistema real de DI con contenedores, esto se haría en un método init() o en el constructor
+        // siempre que las dependencias estén resueltas.
+    }
 
+    public init(): void {
         // Limpiar selección cuando el tablero cambia por navegación
         this.eventBus.on('NAVIGATE_TO_MOVE', () => this.clearSelection());
         this.eventBus.on('POSITION_LOADED', () => this.clearSelection());

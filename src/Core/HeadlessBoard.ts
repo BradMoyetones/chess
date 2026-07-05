@@ -129,7 +129,7 @@ export class HeadlessBoard {
                         type: pieceData.type,
                         color: pieceData.color,
                         skinUrl: this.themeManager
-                            ? this.themeManager.getPieceSkin(pieceData.type, pieceData.color)
+                            ? this.themeManager.getPieceSkin(pieceData.type, pieceData.color) || ''
                             : '',
                     };
                 }
@@ -138,7 +138,7 @@ export class HeadlessBoard {
                     algebraic,
                     isLight,
                     backgroundColor: this.themeManager
-                        ? this.themeManager.getSquareColor(isLight)
+                        ? this.themeManager.getSquareColor(isLight) || (isLight ? '#f0d9b5' : '#b58863')
                         : (isLight ? '#f0d9b5' : '#b58863'),
                     piece,
                     // === Visual State Flags ===

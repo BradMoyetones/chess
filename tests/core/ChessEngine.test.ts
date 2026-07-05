@@ -2,14 +2,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ChessEngine } from '../../src/Core/ChessEngine';
 import { EventBus } from '../../src/Core/EventBus';
+import { Container } from '../../src/Decorators/di.decorators';
 
 describe('ChessEngine', () => {
     let engine: ChessEngine;
     let eventBus: EventBus;
 
     beforeEach(() => {
-        eventBus = new EventBus();
-        engine = new ChessEngine(eventBus);
+        Container.clear();
+        eventBus = Container.resolve(EventBus);
+        engine = Container.resolve(ChessEngine);
     });
 
     describe('Basic Moves', () => {

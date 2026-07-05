@@ -14,6 +14,7 @@ import {
     BoardSnapshot,
     SquareData 
 } from '../index';
+import { Container } from '../Decorators/di.decorators';
 
 // ══════════════════════════════════════════════════
 //  CARGA DINÁMICA DE SKINS DESDE JSON
@@ -139,10 +140,10 @@ const dummyTheme: ThemeConfig = {
     }
 };
 
-const eventBus = new EventBus();
-const engine = new ChessEngine(eventBus);
-const interactionManager = new InteractionManager(engine, eventBus);
-const historyManager = new HistoryManager(engine, eventBus);
+const eventBus = Container.resolve(EventBus);
+const engine = Container.resolve(ChessEngine);
+const interactionManager = Container.resolve(InteractionManager);
+const historyManager = Container.resolve(HistoryManager);
 const board = new HeadlessBoard(engine, { interactionManager });
 
 let lastMessage = "";

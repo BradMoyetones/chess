@@ -1,20 +1,32 @@
 import { EventBus } from '../Core/EventBus';
 import { ThemeManager } from './ThemeManager';
 import { type ThemeConfig } from '../Types';
+import { Service, Inject } from '../Decorators/di.decorators';
 
+/**
+ * @class AudioManager
+ * @description Gestor encargado de reproducir sonidos en respuesta a los eventos del tablero.
+ * Se inyecta automáticamente en el ecosistema y se suscribe a los eventos necesarios.
+ */
+@Service()
 export class AudioManager {
-    private eventBus: EventBus;
-    private themeManager: ThemeManager;
+    @Inject(EventBus)
+    private eventBus!: EventBus;
 
-    constructor(eventBus: EventBus, themeManager: ThemeManager) {
-        this.eventBus = eventBus;
-        this.themeManager = themeManager;
-        
-        this.subscribeToEvents();
+    @Inject(ThemeManager)
+    private themeManager!: ThemeManager;
+
+    constructor() {
+        // En TS 5.0 con decoradores de campo, las propiedades inicializadas mediante 
+        // @Inject ya están disponibles en el momento de invocar el constructor.
+        // Nos aseguramos de suscribirnos en el próximo tick del event loop para evitar posibles race conditions 
+        // si el EventBus no ha terminado su registro completo, aunque aquí es seguro hacerlo directo.
+        setTimeout(() => this.subscribeToEvents(), 0);
     }
 
     /**
-     * Aquí conectamos los cables del EventBus con nuestras acciones.
+     * @method subscribeToEvents
+     * @description Conecta los cables del EventBus con las acciones sonoras.
      * Expandido para cubrir todos los eventos sonoros del framework.
      */
     private subscribeToEvents(): void {
@@ -63,9 +75,12 @@ export class AudioManager {
     }
 
     /**
-     * Lógica central para reproducir un sonido
+     * @method playSound
+     * @description Lógica central para reproducir un sonido.
+     * Si el ThemeManager indica que no hay sonido configurado para esta acción, se ignora.
+     * @param action El tipo de acción ejecutada (move, capture, etc.)
      */
-    private playSound(action: keyof ThemeConfig['sounds']): void {
+    private playSound(action: keyof NonNullable<ThemeConfig['sounds']>): void {
         // 1. Le pedimos al director de arte (ThemeManager) la URL del sonido actual
         const soundUrl = this.themeManager.getSoundUrl(action);
         

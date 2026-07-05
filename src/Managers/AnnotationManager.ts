@@ -4,24 +4,28 @@
 // Totalmente independiente de la lógica de ajedrez.
 
 import { EventBus } from '../Core/EventBus';
-import type {
-    Annotation,
+import type { 
+    Annotation, 
     AnnotationColor,
     AnnotationType,
-    ArrowAnnotation,
-    CircleAnnotation,
-    HighlightAnnotation
+    ArrowAnnotation, 
+    CircleAnnotation, 
+    HighlightAnnotation 
 } from '../Types/annotation.types';
+import { Service, Inject } from '../Decorators/di.decorators';
 
 let annotationCounter = 0;
 
+/**
+ * @class AnnotationManager
+ * @description Gestor de anotaciones (flechas, círculos, etc) en el tablero.
+ */
+@Service()
 export class AnnotationManager {
-    private annotations: Map<string, Annotation> = new Map();
-    private eventBus: EventBus;
+    @Inject(EventBus)
+    private eventBus!: EventBus;
 
-    constructor(eventBus: EventBus) {
-        this.eventBus = eventBus;
-    }
+    private annotations: Map<string, Annotation> = new Map();
 
     // ═══════════════════════════════════════════
     //  CREAR ANOTACIONES

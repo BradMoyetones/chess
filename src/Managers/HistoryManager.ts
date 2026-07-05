@@ -1,45 +1,59 @@
-// src/Managers/HistoryManager.ts
-// Capa de conveniencia sobre el GameTree + ChessEngine para operaciones
-// de historial de alto nivel. Facilita el Time Travel API.
-
 import { ChessEngine } from '../Core/ChessEngine';
-import { EventBus } from '../Core/EventBus';
 import type { MoveData } from '../Types/game-tree.types';
+import { Service, Inject } from '../Decorators/di.decorators';
 
+/**
+ * @class HistoryManager
+ * @description Capa de conveniencia sobre el GameTree + ChessEngine para operaciones
+ * de historial de alto nivel. Facilita el Time Travel API.
+ * Gestiona el viaje en el tiempo y la serialización PGN/FEN.
+ */
+@Service()
 export class HistoryManager {
-    private engine: ChessEngine;
-    private eventBus: EventBus;
-
-    constructor(engine: ChessEngine, eventBus: EventBus) {
-        this.engine = engine;
-        this.eventBus = eventBus;
-    }
+    @Inject(ChessEngine)
+    private engine!: ChessEngine;
 
     // ═══════════════════════════════════════════
     //  TIME TRAVEL API
     // ═══════════════════════════════════════════
 
-    /** Deshace el último movimiento */
+    /** 
+     * @method undo
+     * @description Deshace el último movimiento 
+     */
     public undo(): boolean {
         return this.engine.undo();
     }
 
-    /** Rehace el siguiente movimiento */
+    /** 
+     * @method redo
+     * @description Rehace el siguiente movimiento 
+     */
     public redo(): boolean {
         return this.engine.redo();
     }
 
-    /** Salta al inicio de la partida */
+    /** 
+     * @method goToStart
+     * @description Salta al inicio de la partida 
+     */
     public goToStart(): void {
         this.engine.goToStart();
     }
 
-    /** Salta al final de la partida */
+    /** 
+     * @method goToEnd
+     * @description Salta al final de la partida 
+     */
     public goToEnd(): void {
         this.engine.goToEnd();
     }
 
-    /** Navega a un movimiento específico por ID de nodo */
+    /** 
+     * @method goToMove
+     * @description Navega a un movimiento específico por ID de nodo 
+     * @param nodeId El ID del nodo en el Game Tree
+     */
     public goToMove(nodeId: string): boolean {
         return this.engine.goToMove(nodeId);
     }
@@ -48,22 +62,34 @@ export class HistoryManager {
     //  SERIALIZACIÓN
     // ═══════════════════════════════════════════
 
-    /** Exporta la partida actual como PGN */
+    /** 
+     * @method exportPgn
+     * @description Exporta la partida actual como PGN 
+     */
     public exportPgn(): string {
         return this.engine.getPgn();
     }
 
-    /** Importa una partida desde PGN */
+    /** 
+     * @method importPgn
+     * @description Importa una partida desde PGN 
+     */
     public importPgn(pgn: string): boolean {
         return this.engine.loadPgn(pgn);
     }
 
-    /** Exporta la posición actual como FEN */
+    /** 
+     * @method exportFen
+     * @description Exporta la posición actual como FEN 
+     */
     public exportFen(): string {
         return this.engine.getFen();
     }
 
-    /** Importa una posición desde FEN */
+    /** 
+     * @method importFen
+     * @description Importa una posición desde FEN 
+     */
     public importFen(fen: string): boolean {
         return this.engine.loadFen(fen);
     }
@@ -72,17 +98,26 @@ export class HistoryManager {
     //  CONSULTAS
     // ═══════════════════════════════════════════
 
-    /** Se puede deshacer? */
+    /** 
+     * @method canUndo
+     * @description Indica si se puede deshacer un movimiento 
+     */
     public canUndo(): boolean {
         return this.engine.canUndo();
     }
 
-    /** Se puede rehacer? */
+    /** 
+     * @method canRedo
+     * @description Indica si se puede rehacer un movimiento 
+     */
     public canRedo(): boolean {
         return this.engine.canRedo();
     }
 
-    /** Retorna la lista de movimientos de la línea principal */
+    /** 
+     * @method getMoveList
+     * @description Retorna la lista de movimientos de la línea principal 
+     */
     public getMoveList(): MoveData[] {
         const mainLine = this.engine.getGameTree().getMainLine();
         return mainLine
@@ -90,12 +125,18 @@ export class HistoryManager {
             .map(node => node.move!);
     }
 
-    /** Retorna el índice del movimiento actual */
+    /** 
+     * @method getCurrentMoveIndex
+     * @description Retorna el índice del movimiento actual 
+     */
     public getCurrentMoveIndex(): number {
         return this.engine.getGameTree().getCurrentNode().halfMoveIndex;
     }
 
-    /** Retorna el total de movimientos en la línea principal */
+    /** 
+     * @method getTotalMoves
+     * @description Retorna el total de movimientos en la línea principal 
+     */
     public getTotalMoves(): number {
         return this.engine.getGameTree().getMainLine().length - 1;
     }
