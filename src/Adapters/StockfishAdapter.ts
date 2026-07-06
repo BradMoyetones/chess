@@ -4,14 +4,18 @@
 
 import { EventBus } from '../Core/EventBus';
 import type { EvaluationData, StockfishConfig } from '../Types/engine.types';
+import { Service, Inject } from '../Decorators/di.decorators';
 
 /** Detecta si estamos en un browser (con Web Workers) o en Node.js */
 const isBrowser = typeof globalThis.window !== 'undefined' && typeof globalThis.Worker !== 'undefined';
 
 type MessageHandler = (msg: string) => void;
 
+@Service()
 export class StockfishAdapter {
-    private eventBus: EventBus;
+    @Inject(EventBus)
+    private eventBus!: EventBus;
+
     private config: StockfishConfig | null = null;
     private ready: boolean = false;
     private messageHandlers: MessageHandler[] = [];
@@ -20,9 +24,7 @@ export class StockfishAdapter {
     private sendFn: ((cmd: string) => void) | null = null;
     private destroyFn: (() => void) | null = null;
 
-    constructor(eventBus: EventBus) {
-        this.eventBus = eventBus;
-    }
+    constructor() {}
 
     // ═══════════════════════════════════════════════
     //  LIFECYCLE
@@ -207,7 +209,6 @@ export class StockfishAdapter {
                 // Esperar "uciok"
                 const initHandler = (msg: string) => {
                     if (msg === 'uciok') {
-                        this.removeMessageHandler(initHandler);
                         this.sendCommand('isready');
                     }
                     if (msg === 'readyok') {
@@ -264,7 +265,6 @@ export class StockfishAdapter {
 
                 const initHandler = (msg: string) => {
                     if (msg === 'uciok') {
-                        this.removeMessageHandler(initHandler);
                         this.sendCommand('isready');
                     }
                     if (msg === 'readyok') {
