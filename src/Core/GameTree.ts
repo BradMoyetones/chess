@@ -1,10 +1,9 @@
-// src/Core/GameTree.ts
 // El Gestor del Multiverso.
 // Mantiene el árbol completo de la partida y permite navegar entre
 // posiciones, crear variantes, y serializar/deserializar.
 
 import { MoveNode, resetNodeCounter } from './MoveNode';
-import type { MoveData } from '../Types/game-tree.types';
+import type { MoveData } from '../Types';
 
 const DEFAULT_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 

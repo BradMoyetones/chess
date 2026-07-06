@@ -1,13 +1,12 @@
-// src/Core/HeadlessBoard.ts
 // El puente entre el motor headless y cualquier framework de UI.
 // Genera el BoardSnapshot definitivo: la fotografía completa del universo
 // del tablero que React, Vue, Svelte, o Vanilla JS consumen para renderizar.
 
-import { ThemeManager } from '../Managers/ThemeManager';
+import { ThemeManager } from '../Managers';
 import { ChessEngine } from './ChessEngine';
-import type { InteractionManager } from '../Managers/InteractionManager';
-import type { AnnotationManager } from '../Managers/AnnotationManager';
-import type { BoardSnapshot, SquareData } from '../Types/board.types';
+import type { InteractionManager } from '../Managers';
+import type { AnnotationManager } from '../Managers';
+import type { BoardSnapshot, SquareData } from '../Types';
 import type { PieceSymbol } from 'chess.js';
 
 export class HeadlessBoard {

@@ -1,4 +1,3 @@
-// src/Types/game-tree.types.ts
 // Tipos para el Game Tree: la estructura de datos que permite
 // navegar la partida como un árbol con variantes.
 

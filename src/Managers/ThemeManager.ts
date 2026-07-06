@@ -1,7 +1,7 @@
 import { ThemeConfig } from "../Types";
-import { EventBus } from "../Core/EventBus";
+import { EventBus } from "../Core";
 import { PieceSymbol, Color } from "chess.js";
-import { Service, Inject } from "../Decorators/di.decorators";
+import { Service, Inject } from "../Decorators";
 
 /**
  * @class ThemeManager

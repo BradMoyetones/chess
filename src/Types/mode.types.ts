@@ -1,4 +1,3 @@
-// src/Types/mode.types.ts
 // Modos de ejecución del motor: controlan qué reglas aplican.
 
 /**

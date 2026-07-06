@@ -1,9 +1,8 @@
-// src/Managers/AnnotationManager.ts
 // Capa de "pintura" sobre el tablero.
 // Gestiona flechas, círculos y highlights que NO son parte del juego.
 // Totalmente independiente de la lógica de ajedrez.
 
-import { EventBus } from '../Core/EventBus';
+import { EventBus } from '../Core';
 import type { 
     Annotation, 
     AnnotationColor,
@@ -11,8 +10,8 @@ import type {
     ArrowAnnotation, 
     CircleAnnotation, 
     HighlightAnnotation 
-} from '../Types/annotation.types';
-import { Service, Inject } from '../Decorators/di.decorators';
+} from '../Types';
+import { Service, Inject } from '../Decorators';
 
 let annotationCounter = 0;
 

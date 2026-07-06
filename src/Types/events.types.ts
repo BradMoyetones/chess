@@ -1,4 +1,3 @@
-// src/Types/events.types.ts
 // Diccionario COMPLETO de eventos del sistema.
 // Cada módulo emite y escucha estos eventos a través del EventBus.
 

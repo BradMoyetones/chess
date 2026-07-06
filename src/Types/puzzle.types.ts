@@ -1,4 +1,3 @@
-// src/Types/puzzle.types.ts
 // Tipos para el sistema de puzzles (Fase 4).
 // Definidos desde ahora para que el sistema de eventos los conozca.
 

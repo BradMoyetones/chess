@@ -1,7 +1,3 @@
-// src/index.ts
-// API pública del Chess Framework.
-// Este es el punto de entrada que los consumidores importan.
-
 // === Core ===
 export { EventBus } from './Core/EventBus';
 export { ChessEngine } from './Core/ChessEngine';

@@ -1,13 +1,10 @@
-// src/Managers/PuzzleValidator.ts
 // El cerebro de los puzzles.
 // Valida movimientos contra una solución conocida, ejecuta respuestas
 // automáticas del "oponente fantasma", y emite eventos de progreso.
 
-import { ChessEngine } from '../Core/ChessEngine';
-import { EventBus } from '../Core/EventBus';
-import type { PuzzleConfig, PuzzleState } from '../Types/puzzle.types';
-import type { Color } from 'chess.js';
-import { Service, Inject, Container } from '../Decorators/di.decorators';
+import { ChessEngine, EventBus } from '../Core';
+import type { PuzzleConfig, PuzzleState } from '../Types';
+import { Service, Inject, Container } from '../Decorators';
 
 /**
  * @class PuzzleValidator

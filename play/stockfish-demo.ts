@@ -1,9 +1,13 @@
-import { Container } from '../Decorators/di.decorators';
-import { EventBus } from '../Core/EventBus';
-import { StockfishAdapter } from '../Adapters/StockfishAdapter';
+import { Container } from '../src/Decorators';
+import { EventBus } from '../src/Core';
+import { StockfishAdapter } from '../src/Adapters';
 import path from 'path';
+import fs from 'fs';
 import chalk from 'chalk';
 import ora from 'ora';
+import { detectOS, STOCKFISH_BINARIES } from '../constants';
+import { confirm } from '@inquirer/prompts';
+import { execSync } from 'child_process';
 
 async function main() {
     console.clear();
@@ -49,9 +53,31 @@ async function main() {
         }
     });
 
+    
     try {
+        const os = detectOS();
+        const sfBinary = STOCKFISH_BINARIES.find((b) => b.value === os);
+
+        if(!sfBinary) throw new Error('Stockfish no encontrado para el sistema operativo ' + os)
+
+        const binPath = path.resolve(__dirname, `../bin/${sfBinary.destExe}`);
+        if(!fs.existsSync(binPath)){
+            spinner.stop();
+            const useDefaults = await confirm({
+                message: `¿No se encontró Stockfish para ${chalk.yellow(os)}, deseas ejecutar el proceso de instalación ahora?`,
+                default: true
+            });
+
+            if (!useDefaults) {
+                console.log(chalk.dim('Instalación cancelada.'));
+                process.exit(0);
+            }
+            execSync('npx tsx scripts/install-stockfish.ts', { stdio: 'inherit' })
+            spinner.start()
+        }
+
         await adapter.init({
-            binaryPath: path.resolve(__dirname, '../../bin/stockfish.exe'),
+            binaryPath: binPath,
             defaultDepth: 18,
             threads: 2,
             hashSize: 16

@@ -5,16 +5,14 @@ import * as path from 'path';
 import { 
     EventBus, 
     ChessEngine, 
-    ThemeManager, 
     InteractionManager, 
     HistoryManager, 
-    PuzzleValidator, 
     HeadlessBoard,
     ThemeConfig,
     BoardSnapshot,
     SquareData 
-} from '../index';
-import { Container } from '../Decorators/di.decorators';
+} from '../src/index';
+import { Container } from '../src/Decorators';
 
 // ══════════════════════════════════════════════════
 //  CARGA DINÁMICA DE SKINS DESDE JSON

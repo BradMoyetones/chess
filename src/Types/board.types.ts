@@ -1,4 +1,3 @@
-// src/Types/board.types.ts
 // El contrato del BoardSnapshot: la estructura de datos definitiva
 // que el HeadlessBoard entrega a cualquier framework de UI.
 

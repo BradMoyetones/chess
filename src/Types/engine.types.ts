@@ -1,4 +1,3 @@
-// src/Types/engine.types.ts
 // Tipos para integración con motores de análisis (Stockfish, Fase 5).
 // Definidos desde ahora para que el snapshot los conozca.
 

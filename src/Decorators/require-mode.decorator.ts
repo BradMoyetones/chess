@@ -1,5 +1,3 @@
-import { EngineMode } from '../Types/mode.types';
-
 /**
  * @function RequireMode
  * @description Decorador de método (Legacy) que previene la ejecución de un método si el motor no está en el modo requerido.

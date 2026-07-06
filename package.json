@@ -16,8 +16,8 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "play:tui": "tsx src/play/chess-advanced-console.ts",
-    "play:stockfish": "tsx src/play/stockfish-demo.ts",
+    "play:tui": "tsx play/chess-advanced-console.ts",
+    "play:stockfish": "tsx play/stockfish-demo.ts",
     "stockfish:install": "tsx scripts/install-stockfish.ts",
     "build": "tsc",
     "test": "vitest run",

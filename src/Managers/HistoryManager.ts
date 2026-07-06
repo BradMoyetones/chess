@@ -1,6 +1,6 @@
-import { ChessEngine } from '../Core/ChessEngine';
-import type { MoveData } from '../Types/game-tree.types';
-import { Service, Inject } from '../Decorators/di.decorators';
+import { ChessEngine } from '../Core';
+import type { MoveData } from '../Types';
+import { Service, Inject } from '../Decorators';
 
 /**
  * @class HistoryManager

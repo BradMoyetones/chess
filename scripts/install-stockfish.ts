@@ -5,55 +5,10 @@ import os from 'os';
 import { select, confirm } from '@inquirer/prompts';
 import chalk from 'chalk';
 import ora from 'ora';
+import { STOCKFISH_BINARIES, detectOS } from '../constants';
 
 const SF_VERSION = 'sf_18';
 const BASE_URL = `https://github.com/official-stockfish/Stockfish/releases/download/${SF_VERSION}`;
-
-const BINARIES = [
-    {
-        name: 'Windows x86-64',
-        value: 'windows',
-        file: 'stockfish-windows-x86-64.zip',
-        isZip: true,
-        exePath: 'stockfish/stockfish-windows-x86-64.exe',
-        destExe: 'stockfish.exe'
-    },
-    {
-        name: 'macOS M1/M2/M3 (Apple Silicon)',
-        value: 'mac-m1',
-        file: 'stockfish-macos-m1-apple-silicon.tar',
-        isZip: false,
-        exePath: 'stockfish/stockfish-macos-m1-apple-silicon',
-        destExe: 'stockfish'
-    },
-    {
-        name: 'macOS Intel',
-        value: 'mac-intel',
-        file: 'stockfish-macos-x86-64.tar',
-        isZip: false,
-        exePath: 'stockfish/stockfish-macos-x86-64',
-        destExe: 'stockfish'
-    },
-    {
-        name: 'Linux Ubuntu x86-64',
-        value: 'linux',
-        file: 'stockfish-ubuntu-x86-64.tar',
-        isZip: false,
-        exePath: 'stockfish/stockfish-ubuntu-x86-64',
-        destExe: 'stockfish'
-    }
-];
-
-function detectOS() {
-    const platform = os.platform();
-    const arch = os.arch();
-
-    if (platform === 'win32') return 'windows';
-    if (platform === 'darwin') {
-        return arch === 'arm64' ? 'mac-m1' : 'mac-intel';
-    }
-    return 'linux';
-}
 
 async function downloadFile(url: string, dest: string, spinner: any) {
     const res = await fetch(url);
@@ -75,18 +30,18 @@ async function main() {
     }
 
     const detected = detectOS();
-    const recommended = BINARIES.find(b => b.value === detected) || BINARIES[0];
+    const recommended = STOCKFISH_BINARIES.find(b => b.value === detected) || STOCKFISH_BINARIES[0];
 
     const answer = await select({
         message: 'Selecciona el sistema operativo y arquitectura destino:',
-        choices: BINARIES.map(b => ({
-            name: b.value === detected ? `${b.name} ${chalk.green('(Detectado)')}` : b.name,
+        choices: STOCKFISH_BINARIES.map(b => ({
+            name: b.value === recommended.value ? `${b.name} ${chalk.green('(Detectado)')}` : b.name,
             value: b.value
         })),
-        default: detected
+        default: recommended.value
     });
 
-    const target = BINARIES.find(b => b.value === answer)!;
+    const target = STOCKFISH_BINARIES.find(b => b.value === answer)!;
 
     const useDefaults = await confirm({
         message: `¿Descargar Stockfish 18 para ${chalk.yellow(target.name)} en la carpeta /bin?`,

@@ -1,5 +1,5 @@
-import { type AppEvents } from '../Types/events.types';
-import { Service } from '../Decorators/di.decorators';
+import { type AppEvents } from '../Types';
+import { Service } from '../Decorators';
 
 type EventCallback<T> = (payload: T) => void;
 

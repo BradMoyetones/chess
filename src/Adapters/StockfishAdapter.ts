@@ -1,10 +1,9 @@
-// src/Adapters/StockfishAdapter.ts
 // Proxy entre el Chess Framework y Stockfish vía UCI protocol.
 // Soporta ambos entornos: Web Worker (WASM) en browser y child_process en Node.js.
 
-import { EventBus } from '../Core/EventBus';
-import type { EvaluationData, StockfishConfig } from '../Types/engine.types';
-import { Service, Inject } from '../Decorators/di.decorators';
+import { EventBus } from '../Core';
+import type { EvaluationData, StockfishConfig } from '../Types';
+import { Service, Inject } from '../Decorators';
 
 /** Detecta si estamos en un browser (con Web Workers) o en Node.js */
 const isBrowser = typeof globalThis.window !== 'undefined' && typeof globalThis.Worker !== 'undefined';

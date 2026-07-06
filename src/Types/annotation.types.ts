@@ -1,4 +1,3 @@
-// src/Types/annotation.types.ts
 // Tipos para el sistema de anotaciones visuales (flechas, círculos, highlights).
 // Estas NO son parte del juego — son pintura sobre el tablero.
 

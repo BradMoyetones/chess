@@ -1,11 +1,11 @@
 import { Chess, Square, PieceSymbol, Color, Move } from 'chess.js';
 import { EventBus } from './EventBus';
 import { GameTree } from './GameTree';
-import type { MoveData, MoveResult } from '../Types/game-tree.types';
-import type { EngineMode } from '../Types/mode.types';
-import { Service, Inject } from '../Decorators/di.decorators';
-import { RequireMode } from '../Decorators/require-mode.decorator';
-import { EmitEvent } from '../Decorators/emit-event.decorator';
+import type { MoveData, MoveResult } from '../Types';
+import type { EngineMode } from '../Types';
+import { Service, Inject } from '../Decorators';
+import { RequireMode } from '../Decorators';
+import { EmitEvent } from '../Decorators';
 
 export interface PieceData {
     type: PieceSymbol;

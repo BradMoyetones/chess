@@ -1,10 +1,8 @@
-// src/Managers/InteractionManager.ts
 // Puente entre el input del usuario y la lógica del motor.
 // Gestiona: selección de casillas, destinos legales, click-to-move y pre-moves.
 
-import { ChessEngine } from '../Core/ChessEngine';
-import { EventBus } from '../Core/EventBus';
-import { Service, Inject } from '../Decorators/di.decorators';
+import { ChessEngine, EventBus } from '../Core';
+import { Service, Inject } from '../Decorators';
 
 export interface Premove {
     from: string;

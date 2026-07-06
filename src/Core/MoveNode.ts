@@ -1,10 +1,9 @@
-// src/Core/MoveNode.ts
 // La unidad atómica del Game Tree.
 // Cada nodo es un "momento" completo de la partida: almacena el FEN
 // (fotografía del estado), el movimiento que llevó aquí, y referencias
 // a su padre y sus hijos (variantes).
 
-import type { MoveData } from '../Types/game-tree.types';
+import type { MoveData } from '../Types';
 
 let nodeCounter = 0;
 
