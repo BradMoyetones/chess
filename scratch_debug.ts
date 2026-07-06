@@ -1,7 +1,7 @@
 import { ChessEngine } from './src/Core/ChessEngine';
-import { EventBus } from './src/Core/EventBus';
+import { Container } from './src/Decorators/di.decorators';
 
-const engine = new ChessEngine(new EventBus());
+const engine = Container.resolve(ChessEngine);
 engine.loadFen('6k1/8/8/8/8/8/8/K7 w - - 0 1');
 console.log('Turn before:', engine.getTurn());
 
