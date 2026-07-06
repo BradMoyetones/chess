@@ -6,8 +6,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       deployments: write
+      contents: read
     steps:
-      - name: Delete Deployments
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Eliminar todos los despliegues
         uses: strumwolf/delete-deployment-environment@v3
         with:
           onlyRemoveDeployments: true
