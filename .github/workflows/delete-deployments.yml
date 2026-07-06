@@ -1,6 +1,13 @@
 name: Clean Deployments
+
 on:
   workflow_dispatch:
+    inputs:
+      entorno:
+        description: 'production'
+        required: true
+        default: 'github-pages'
+
 jobs:
   delete_deployments:
     runs-on: ubuntu-latest
@@ -11,8 +18,9 @@ jobs:
       - name: Clonar repositorio
         uses: actions/checkout@v4
 
-      - name: Eliminar todos los despliegues
+      - name: Eliminar despliegues del entorno
         uses: strumwolf/delete-deployment-environment@v3
         with:
+          environment: ${{ github.event.inputs.entorno }}
           onlyRemoveDeployments: true
           token: ${{ secrets.GITHUB_TOKEN }}
