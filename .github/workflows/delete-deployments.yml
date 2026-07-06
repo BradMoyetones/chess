@@ -1,7 +1,7 @@
 name: Clean Deployments
 
 on:
-  workflow_dispatch: # Se ejecuta con un solo clic
+  workflow_dispatch:
 
 jobs:
   delete_deployments:
@@ -13,9 +13,31 @@ jobs:
       - name: Clonar repositorio
         uses: actions/checkout@v4
 
-      - name: Delete production deployments
-        uses: strumwolf/delete-deployment-environment@v3
+      - name: Delete All Deployments
+        uses: actions/github-script@v7
         with:
-          environment: Production
-          onlyRemoveDeployments: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PAT_TOKEN }}
+          script: |
+            const { data: deployments } = await github.rest.repos.listDeployments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            console.log(`Se encontraron ${deployments.length} deployments.`);
+            
+            for (const deployment of deployments) {
+              console.log(`Desactivando y borrando deployment ID: ${deployment.id} (${deployment.environment})`);
+              
+              await github.rest.repos.createDeploymentStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                deployment_id: deployment.id,
+                state: 'inactive'
+              });
+              
+              await github.rest.repos.deleteDeployment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                deployment_id: deployment.id,
+              });
+            }
