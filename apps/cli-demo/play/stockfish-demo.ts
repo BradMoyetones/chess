@@ -1,11 +1,11 @@
-import { Container } from '../src/Decorators';
-import { EventBus } from '../src/Core';
-import { StockfishAdapter } from '../src/Adapters';
+import { Container } from '@chess-fw/core';
+import { EventBus } from '@chess-fw/core';
+import { StockfishAdapter } from '@chess-fw/core';
 import path from 'path';
 import fs from 'fs';
 import chalk from 'chalk';
 import ora from 'ora';
-import { detectOS, STOCKFISH_BINARIES } from '../constants';
+import { detectOS, STOCKFISH_BINARIES } from '../constants/index.js';
 import { confirm } from '@inquirer/prompts';
 import { execSync } from 'child_process';
 

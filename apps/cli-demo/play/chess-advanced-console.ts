@@ -3,16 +3,16 @@ import * as readline from 'node:readline';
 import * as fs from 'fs';
 import * as path from 'path';
 import { 
-    EventBus, 
     ChessEngine, 
     InteractionManager, 
     HistoryManager, 
     HeadlessBoard,
     ThemeConfig,
     BoardSnapshot,
-    SquareData 
-} from '../src/index';
-import { Container } from '../src/Decorators';
+    SquareData,
+    EventBus,
+    Container
+} from '@chess-fw/core';
 
 // ══════════════════════════════════════════════════
 //  CARGA DINÁMICA DE SKINS DESDE JSON

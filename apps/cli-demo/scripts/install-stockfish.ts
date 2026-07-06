@@ -5,7 +5,7 @@ import os from 'os';
 import { select, confirm } from '@inquirer/prompts';
 import chalk from 'chalk';
 import ora from 'ora';
-import { STOCKFISH_BINARIES, detectOS } from '../constants';
+import { STOCKFISH_BINARIES, detectOS } from '../constants/index.js';
 
 const SF_VERSION = 'sf_18';
 const BASE_URL = `https://github.com/official-stockfish/Stockfish/releases/download/${SF_VERSION}`;

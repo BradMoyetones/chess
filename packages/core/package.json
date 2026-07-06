@@ -1,0 +1,41 @@
+{
+  "name": "@chess-fw/core",
+  "description": "A chess module typescript bases (POO)",
+  "version": "1.0.0",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": {
+    "name": "Brad Moyetones",
+    "url": "https://github.com/BradMoyetones"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BradMoyetones/chess.git",
+    "directory": "packages/core"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "chess",
+    "framework",
+    "typescript",
+    "javascript"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1"
+  }
+}
