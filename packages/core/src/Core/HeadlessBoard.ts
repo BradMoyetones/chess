@@ -2,7 +2,7 @@
 // Genera el BoardSnapshot definitivo: la fotografía completa del universo
 // del tablero que React, Vue, Svelte, o Vanilla JS consumen para renderizar.
 
-import { ThemeManager } from '../Managers';
+
 import { ChessEngine } from './ChessEngine';
 import type { InteractionManager } from '../Managers';
 import type { AnnotationManager } from '../Managers';
@@ -10,7 +10,7 @@ import type { BoardSnapshot, SquareData } from '../Types';
 import type { PieceSymbol } from 'chess.js';
 
 export class HeadlessBoard {
-    private themeManager: ThemeManager | null;
+
     private engine: ChessEngine;
     private interactionManager: InteractionManager | null;
     private annotationManager: AnnotationManager | null;
@@ -20,20 +20,18 @@ export class HeadlessBoard {
 
     /**
      * Constructor flexible: solo el engine es obligatorio.
-     * ThemeManager, InteractionManager y AnnotationManager son opcionales.
-     * Esto permite usar el HeadlessBoard en server-side sin temas,
+     * InteractionManager y AnnotationManager son opcionales.
+     * Esto permite usar el HeadlessBoard en server-side,
      * o sin interacción (ej: solo para exportar snapshots estáticos).
      */
     constructor(
         engine: ChessEngine,
         options?: {
-            themeManager?: ThemeManager;
             interactionManager?: InteractionManager;
             annotationManager?: AnnotationManager;
         }
     ) {
         this.engine = engine;
-        this.themeManager = options?.themeManager || null;
         this.interactionManager = options?.interactionManager || null;
         this.annotationManager = options?.annotationManager || null;
     }
@@ -127,18 +125,12 @@ export class HeadlessBoard {
                     piece = {
                         type: pieceData.type,
                         color: pieceData.color,
-                        skinUrl: this.themeManager
-                            ? this.themeManager.getPieceSkin(pieceData.type, pieceData.color) || ''
-                            : '',
                     };
                 }
 
                 row.push({
                     algebraic,
                     isLight,
-                    backgroundColor: this.themeManager
-                        ? this.themeManager.getSquareColor(isLight) || (isLight ? '#f0d9b5' : '#b58863')
-                        : (isLight ? '#f0d9b5' : '#b58863'),
                     piece,
                     // === Visual State Flags ===
                     isLastMoveOrigin: lastMove?.from === algebraic,

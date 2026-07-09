@@ -2,7 +2,6 @@
 // Gestiona: selección de casillas, destinos legales, click-to-move y pre-moves.
 
 import { ChessEngine, EventBus } from '../Core';
-import { Service, Inject } from '../Decorators';
 
 export interface Premove {
     from: string;
@@ -13,32 +12,35 @@ export interface Premove {
  * @class InteractionManager
  * @description Maneja el estado de interacción del usuario con el tablero (click, drag, etc).
  */
-@Service()
 export class InteractionManager {
-    @Inject(ChessEngine)
-    private engine!: ChessEngine;
-
-    @Inject(EventBus)
-    private eventBus!: EventBus;
+    private engine: ChessEngine;
+    private eventBus: EventBus;
 
     private selectedSquare: string | null = null;
     private validDestinations: string[] = [];
     private premoveQueue: Premove[] = [];
+    private cleanupFns: (() => void)[] = [];
 
-    constructor() {
-        // La inicialización se maneja mediante DI, pero necesitamos registrar los eventos
-        // Nota: En un sistema real de DI con contenedores, esto se haría en un método init() o en el constructor
-        // siempre que las dependencias estén resueltas.
+    constructor(engine: ChessEngine, eventBus: EventBus) {
+        this.engine = engine;
+        this.eventBus = eventBus;
+        this.subscribeToEvents();
     }
 
-    public init(): void {
-        // Limpiar selección cuando el tablero cambia por navegación
-        this.eventBus.on('NAVIGATE_TO_MOVE', () => this.clearSelection());
-        this.eventBus.on('POSITION_LOADED', () => this.clearSelection());
-        this.eventBus.on('GAME_RESET', () => this.clearSelection());
+    private subscribeToEvents(): void {
+        this.cleanupFns.push(
+            this.eventBus.on('NAVIGATE_TO_MOVE', () => this.clearSelection()),
+            this.eventBus.on('POSITION_LOADED', () => this.clearSelection()),
+            this.eventBus.on('GAME_RESET', () => this.clearSelection()),
+            this.eventBus.on('BOARD_UPDATED', () => this.tryExecutePremove()),
+        );
+    }
 
-        // Intentar ejecutar pre-moves cuando el tablero se actualiza
-        this.eventBus.on('BOARD_UPDATED', () => this.tryExecutePremove());
+    public destroy(): void {
+        this.cleanupFns.forEach(fn => fn());
+        this.cleanupFns = [];
+        this.clearSelection();
+        this.clearPremoves();
     }
 
     /**

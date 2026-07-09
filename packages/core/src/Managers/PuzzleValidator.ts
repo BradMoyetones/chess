@@ -2,27 +2,25 @@
 // Valida movimientos contra una solución conocida, ejecuta respuestas
 // automáticas del "oponente fantasma", y emite eventos de progreso.
 
+import { Chess } from 'chess.js';
 import { ChessEngine, EventBus } from '../Core';
 import type { PuzzleConfig, PuzzleState } from '../Types';
-import { Service, Inject, Container } from '../Decorators';
 
 /**
  * @class PuzzleValidator
  * @description Validador de rompecabezas, maneja la progresión de los mismos.
  */
-@Service()
 export class PuzzleValidator {
-    @Inject(ChessEngine)
-    private engine!: ChessEngine;
-
-    @Inject(EventBus)
-    private eventBus!: EventBus;
+    private engine: ChessEngine;
+    private eventBus: EventBus;
 
     private config: PuzzleConfig | null = null;
     private state: PuzzleState;
     private originalFen: string = '';
 
-    constructor() {
+    constructor(engine: ChessEngine, eventBus: EventBus) {
+        this.engine = engine;
+        this.eventBus = eventBus;
         this.state = this.createEmptyState();
     }
 
@@ -250,9 +248,8 @@ export class PuzzleValidator {
 
         // Determinar si el primer movimiento de la solución es del oponente o del jugador
         // basándonos en el FEN original (quién tiene el turno)
-        const tempEngine = Container.resolve(ChessEngine);
-        tempEngine.initialize(this.originalFen);
-        const firstMoveIsOpponent = tempEngine.getTurn() !== this.config.playerColor;
+        const tempChess = new Chess(this.originalFen);
+        const firstMoveIsOpponent = tempChess.turn() !== this.config.playerColor;
 
         if (firstMoveIsOpponent) {
             // solution = [oponente, jugador, oponente, jugador, ...]

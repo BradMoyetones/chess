@@ -1,6 +1,3 @@
 export * from './AnnotationManager'
-export * from './AudioManager'
-export * from './HistoryManager'
 export * from './InteractionManager'
 export * from './PuzzleValidator'
-export * from './ThemeManager'

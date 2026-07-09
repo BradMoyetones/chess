@@ -14,12 +14,9 @@ export interface SquareData {
     algebraic: string;              // Coordenada algebraica (ej: 'e4')
     isLight: boolean;               // true = casilla clara, false = oscura
 
-    // === Theme Layer (resuelto por ThemeManager si existe) ===
-    backgroundColor: string;        // Color de fondo final
     piece: {
         type: PieceSymbol;
         color: Color;
-        skinUrl: string;            // URL de la imagen de la pieza (del tema)
     } | null;
 
     // === Visual State Flags ===

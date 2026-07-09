@@ -8,9 +8,6 @@
     "declaration": true,
     "strict": true,
     "noImplicitAny": false,
-    "ignoreDeprecations": "6.0",
-    "experimentalDecorators": true,
-    "useDefineForClassFields": false,
     "esModuleInterop": true,
     "types": ["node"]
   },

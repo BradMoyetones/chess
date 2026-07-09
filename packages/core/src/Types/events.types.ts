@@ -28,8 +28,6 @@ export type AppEvents = {
     'CHECK': { kingColor: Color };
     'GAME_OVER': { winner: Color | 'draw'; reason: string };
 
-    // ─── Tema ───
-    'THEME_CHANGED': { themeId: string; themeName: string };
 
     // ─── Fase 1: Time Travel ───
     'MOVE_UNDONE': { move: MovePayload };

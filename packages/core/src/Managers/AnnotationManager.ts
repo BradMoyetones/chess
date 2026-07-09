@@ -11,7 +11,6 @@ import type {
     CircleAnnotation, 
     HighlightAnnotation 
 } from '../Types';
-import { Service, Inject } from '../Decorators';
 
 let annotationCounter = 0;
 
@@ -19,12 +18,14 @@ let annotationCounter = 0;
  * @class AnnotationManager
  * @description Gestor de anotaciones (flechas, círculos, etc) en el tablero.
  */
-@Service()
 export class AnnotationManager {
-    @Inject(EventBus)
-    private eventBus!: EventBus;
+    private eventBus: EventBus;
 
     private annotations: Map<string, Annotation> = new Map();
+
+    constructor(eventBus: EventBus) {
+        this.eventBus = eventBus;
+    }
 
     // ═══════════════════════════════════════════
     //  CREAR ANOTACIONES
