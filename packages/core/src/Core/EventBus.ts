@@ -1,14 +1,12 @@
 import { type AppEvents } from '../Types';
-import { Service } from '../Decorators';
 
 type EventCallback<T> = (payload: T) => void;
 
 /**
  * @class EventBus
  * @description Sistema de publicación/suscripción (PubSub) central del framework.
- * Es un servicio inyectable que permite a los componentes comunicarse sin acoplamiento directo.
+ * Permite a los componentes comunicarse sin acoplamiento directo.
  */
-@Service()
 export class EventBus {
     private listeners: { 
         [K in keyof AppEvents]?: EventCallback<AppEvents[K]>[] 
@@ -17,14 +15,17 @@ export class EventBus {
     /**
      * @method on
      * @description Suscribe un callback a un evento de forma permanente.
+     * Retorna una función de cleanup para desuscribirse.
      * @param event El nombre del evento a escuchar (tipado estrictamente por AppEvents)
      * @param callback Función a ejecutar cuando el evento ocurra
+     * @returns Función de cleanup que remueve el listener
      */
-    public on<K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>): void {
+    public on<K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>): () => void {
         if (!this.listeners[event]) {
             this.listeners[event] = [];
         }
-        this.listeners[event]!.push(callback);
+        (this.listeners[event] as EventCallback<AppEvents[K]>[]).push(callback);
+        return () => this.off(event, callback);
     }
 
     /**
@@ -33,13 +34,14 @@ export class EventBus {
      * El listener se auto-elimina tras su primera invocación.
      * @param event El nombre del evento a escuchar
      * @param callback Función a ejecutar cuando el evento ocurra
+     * @returns Función de cleanup que remueve el listener
      */
-    public once<K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>): void {
+    public once<K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>): () => void {
         const wrapper = ((payload: AppEvents[K]) => {
             this.off(event, wrapper);
             callback(payload);
         }) as EventCallback<AppEvents[K]>;
-        this.on(event, wrapper);
+        return this.on(event, wrapper);
     }
 
     /**

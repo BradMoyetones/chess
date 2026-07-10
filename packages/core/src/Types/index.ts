@@ -5,4 +5,3 @@ export * from "./events.types";
 export * from "./game-tree.types";
 export * from "./mode.types";
 export * from "./puzzle.types";
-export * from "./theme.types";

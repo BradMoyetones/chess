@@ -3,17 +3,14 @@
 
 import { EventBus } from '../Core';
 import type { EvaluationData, StockfishConfig } from '../Types';
-import { Service, Inject } from '../Decorators';
 
 /** Detecta si estamos en un browser (con Web Workers) o en Node.js */
 const isBrowser = typeof globalThis.window !== 'undefined' && typeof globalThis.Worker !== 'undefined';
 
 type MessageHandler = (msg: string) => void;
 
-@Service()
 export class StockfishAdapter {
-    @Inject(EventBus)
-    private eventBus!: EventBus;
+    private eventBus: EventBus;
 
     private config: StockfishConfig | null = null;
     private ready: boolean = false;
@@ -23,7 +20,9 @@ export class StockfishAdapter {
     private sendFn: ((cmd: string) => void) | null = null;
     private destroyFn: (() => void) | null = null;
 
-    constructor() {}
+    constructor(eventBus: EventBus) {
+        this.eventBus = eventBus;
+    }
 
     // ═══════════════════════════════════════════════
     //  LIFECYCLE

@@ -3,9 +3,6 @@ import { EventBus } from './EventBus';
 import { GameTree } from './GameTree';
 import type { MoveData, MoveResult } from '../Types';
 import type { EngineMode } from '../Types';
-import { Service, Inject } from '../Decorators';
-import { RequireMode } from '../Decorators';
-import { EmitEvent } from '../Decorators';
 
 export interface PieceData {
     type: PieceSymbol;
@@ -17,33 +14,20 @@ export interface PieceData {
  * @description El Gestor de Estados Multi-Contexto.
  * Orquesta el estado del juego, el Game Tree, la navegación temporal,
  * y la comunicación con todos los módulos vía EventBus.
- * Ahora inyectado automáticamente.
  */
-@Service()
 export class ChessEngine {
     private chess: Chess;
-    
-    @Inject(EventBus)
-    private eventBus!: EventBus;
-    
+    private eventBus: EventBus;
     private gameTree: GameTree;
     private lastMove: { from: string; to: string } | null = null;
     private mode: EngineMode = 'PLAY';
 
-    constructor() {
-        this.chess = new Chess();
-        this.gameTree = new GameTree(this.chess.fen());
-    }
-
-    /**
-     * @method initialize
-     * @description Permite inicializar el motor con un FEN específico después de ser inyectado.
-     */
-    public initialize(initialFen?: string): void {
-        if (initialFen) {
-            this.chess = new Chess(initialFen);
-            this.gameTree = new GameTree(this.chess.fen());
-        }
+    constructor(eventBus: EventBus, initialFen?: string) {
+        this.eventBus = eventBus;
+        this.gameTree = new GameTree(initialFen);
+        this.chess = initialFen ? new Chess(initialFen) : new Chess();
+        this.mode = 'PLAY';
+        this.lastMove = null;
     }
 
     // ═══════════════════════════════════════════
@@ -79,7 +63,6 @@ export class ChessEngine {
      * @method attemptMove
      * @description Intenta ejecutar un movimiento y emite 'BOARD_UPDATED' si es exitoso.
      */
-    @EmitEvent('BOARD_UPDATED')
     public attemptMove(from: string, to: string, promotion?: PieceSymbol): MoveResult {
         // En modo PLAY, verificar si el juego terminó
         if (this.mode === 'PLAY' && this.chess.isGameOver()) {
@@ -98,7 +81,11 @@ export class ChessEngine {
         if (this.mode === 'ANALYSIS') {
             const piece = this.chess.get(from as Square);
             if (piece && piece.color !== this.chess.turn()) {
-                this.chess.setTurn(piece.color);
+                // Reconstruct FEN with correct turn without using setTurn
+                const fen = this.chess.fen();
+                const parts = fen.split(' ');
+                parts[1] = piece.color;
+                this.chess.load(parts.join(' '));
             }
         }
 
@@ -153,6 +140,7 @@ export class ChessEngine {
                 // Analizar y emitir eventos
                 this.analyzeAndEmitEvents(move);
 
+                this.eventBus.emit('BOARD_UPDATED', {});
                 return { success: true, move: moveData };
             }
         } catch (e) {
@@ -169,7 +157,6 @@ export class ChessEngine {
      * @method undo
      * @description Deshace el último movimiento y actualiza la UI.
      */
-    @EmitEvent('BOARD_UPDATED')
     public undo(): boolean {
         const prevNode = this.gameTree.goToPrev();
         if (!prevNode) return false;
@@ -189,6 +176,7 @@ export class ChessEngine {
                 piece: prevNode.move?.piece || ''
             }
         });
+        this.eventBus.emit('BOARD_UPDATED', {});
         return true;
     }
 
@@ -196,7 +184,6 @@ export class ChessEngine {
      * @method redo
      * @description Rehace el siguiente movimiento por la línea principal.
      */
-    @EmitEvent('BOARD_UPDATED')
     public redo(): boolean {
         const nextNode = this.gameTree.goToNext();
         if (!nextNode) return false;
@@ -214,6 +201,7 @@ export class ChessEngine {
                 piece: nextNode.move?.piece || ''
             }
         });
+        this.eventBus.emit('BOARD_UPDATED', {});
         return true;
     }
 
@@ -221,7 +209,6 @@ export class ChessEngine {
      * @method goToMove
      * @description Navega a un nodo específico del Game Tree por su ID 
      */
-    @EmitEvent('BOARD_UPDATED')
     public goToMove(nodeId: string): boolean {
         const node = this.gameTree.goToNode(nodeId);
         if (!node) return false;
@@ -235,6 +222,7 @@ export class ChessEngine {
         }
 
         this.eventBus.emit('NAVIGATE_TO_MOVE', { moveIndex: node.halfMoveIndex });
+        this.eventBus.emit('BOARD_UPDATED', {});
         return true;
     }
 
@@ -242,18 +230,17 @@ export class ChessEngine {
      * @method goToStart
      * @description Salta al inicio de la partida 
      */
-    @EmitEvent('BOARD_UPDATED')
     public goToStart(): void {
         this.gameTree.goToRoot();
         this.chess.load(this.gameTree.getCurrentNode().fen);
         this.lastMove = null;
+        this.eventBus.emit('BOARD_UPDATED', {});
     }
 
     /** 
      * @method goToEnd
      * @description Salta al último movimiento de la línea principal 
      */
-    @EmitEvent('BOARD_UPDATED')
     public goToEnd(): void {
         this.gameTree.goToEnd();
         const node = this.gameTree.getCurrentNode();
@@ -261,6 +248,7 @@ export class ChessEngine {
         if (node.move) {
             this.lastMove = { from: node.move.from, to: node.move.to };
         }
+        this.eventBus.emit('BOARD_UPDATED', {});
     }
 
     // ═══════════════════════════════════════════
@@ -271,13 +259,13 @@ export class ChessEngine {
      * @method loadFen
      * @description Carga una posición desde FEN.
      */
-    @EmitEvent('BOARD_UPDATED')
     public loadFen(fen: string): boolean {
         try {
             this.chess.load(fen);
             this.gameTree.reset(fen);
             this.lastMove = null;
             this.eventBus.emit('POSITION_LOADED', { fen, source: 'fen' });
+            this.eventBus.emit('BOARD_UPDATED', {});
             return true;
         } catch {
             return false;
@@ -288,7 +276,6 @@ export class ChessEngine {
      * @method loadPgn
      * @description Carga una partida completa desde una cadena PGN.
      */
-    @EmitEvent('BOARD_UPDATED')
     public loadPgn(pgn: string): boolean {
         try {
             const tempChess = new Chess();
@@ -333,6 +320,7 @@ export class ChessEngine {
             }
 
             this.eventBus.emit('POSITION_LOADED', { fen: this.chess.fen(), source: 'pgn' });
+            this.eventBus.emit('BOARD_UPDATED', {});
             return true;
         } catch {
             return false;
@@ -413,18 +401,16 @@ export class ChessEngine {
     public getPremoveDestinationsFor(square: string): string[] {
         const piece = this.chess.get(square as Square);
         if (!piece) return [];
-        const originalTurn = this.chess.turn();
         
-        if (piece.color === originalTurn) {
+        if (piece.color === this.chess.turn()) {
             return this.getLegalMovesFor(square);
         }
         
-        // Cambiar temporalmente el turno para generar movimientos
-        this.chess.setTurn(piece.color);
-        const moves = this.getLegalMovesFor(square);
-        this.chess.setTurn(originalTurn);
-        
-        return moves;
+        // Clone chess instance to avoid corrupting the live game history
+        const tempChess = new Chess(this.chess.fen());
+        tempChess.setTurn(piece.color);
+        const moves = tempChess.moves({ square: square as Square, verbose: true });
+        return (moves as Move[]).map(m => m.to);
     }
 
     /** Retorna TODOS los movimientos legales con datos completos */
@@ -461,13 +447,16 @@ export class ChessEngine {
      * @method placePiece
      * @description Coloca una pieza en una casilla (solo en modo SETUP) 
      */
-    @RequireMode('SETUP')
-    @EmitEvent('BOARD_UPDATED')
     public placePiece(square: string, type: PieceSymbol, color: Color): boolean {
+        if (this.mode !== 'SETUP') {
+            console.warn('[placePiece] Requires SETUP mode');
+            return false;
+        }
         const success = this.chess.put({ type, color }, square as Square);
         if (success) {
             this.gameTree.reset(this.chess.fen());
             this.eventBus.emit('PIECE_PLACED', { square, piece: type, color });
+            this.eventBus.emit('BOARD_UPDATED', {});
         }
         return success;
     }
@@ -476,13 +465,16 @@ export class ChessEngine {
      * @method removePiece
      * @description Elimina una pieza de una casilla (solo en modo SETUP) 
      */
-    @RequireMode('SETUP')
-    @EmitEvent('BOARD_UPDATED')
     public removePiece(square: string): boolean {
+        if (this.mode !== 'SETUP') {
+            console.warn('[removePiece] Requires SETUP mode');
+            return false;
+        }
         const removed = this.chess.remove(square as Square);
         if (removed) {
             this.gameTree.reset(this.chess.fen());
             this.eventBus.emit('PIECE_REMOVED', { square });
+            this.eventBus.emit('BOARD_UPDATED', {});
         }
         return !!removed;
     }
@@ -491,11 +483,14 @@ export class ChessEngine {
      * @method clearBoard
      * @description Limpia todo el tablero (solo en modo SETUP) 
      */
-    @RequireMode('SETUP')
-    @EmitEvent('BOARD_UPDATED')
     public clearBoard(): void {
+        if (this.mode !== 'SETUP') {
+            console.warn('[clearBoard] Requires SETUP mode');
+            return;
+        }
         this.chess.clear();
         this.gameTree.reset(this.chess.fen());
+        this.eventBus.emit('BOARD_UPDATED', {});
     }
 
     // ═══════════════════════════════════════════
@@ -518,6 +513,32 @@ export class ChessEngine {
     }
 
     // ═══════════════════════════════════════════
+    //  HISTORIAL (migrado desde HistoryManager)
+    // ═══════════════════════════════════════════
+
+    /** Retorna la lista de movimientos de la línea principal */
+    public getMoveList(): MoveData[] {
+        return this.gameTree.getMainLine()
+            .filter(node => node.move !== null)
+            .map(node => node.move!);
+    }
+
+    /** Retorna el índice del movimiento actual */
+    public getCurrentMoveIndex(): number {
+        return this.gameTree.getCurrentNode().halfMoveIndex;
+    }
+
+    /** Retorna el total de movimientos en la línea principal */
+    public getTotalMoves(): number {
+        return this.gameTree.getMainLine().length - 1;
+    }
+
+    /** Alias para getMoveList() — compatibilidad */
+    public getMoveHistory(): MoveData[] {
+        return this.getMoveList();
+    }
+
+    // ═══════════════════════════════════════════
     //  RESET
     // ═══════════════════════════════════════════
 
@@ -525,7 +546,6 @@ export class ChessEngine {
      * @method resetGame
      * @description Reinicia la partida completa 
      */
-    @EmitEvent('BOARD_UPDATED')
     public resetGame(fen?: string): void {
         if (fen) {
             this.chess.load(fen);
@@ -535,6 +555,7 @@ export class ChessEngine {
         this.gameTree.reset(this.chess.fen());
         this.lastMove = null;
         this.eventBus.emit('GAME_RESET', {});
+        this.eventBus.emit('BOARD_UPDATED', {});
     }
 
     // ═══════════════════════════════════════════

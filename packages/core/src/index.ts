@@ -7,13 +7,12 @@ export {
     MoveNode
 } from './Core';
 
+export { ChessApp } from './Core/ChessApp';
+
 // === Managers ===
 export {
-    ThemeManager,
-    AudioManager,
     InteractionManager,
     AnnotationManager,
-    HistoryManager,
     PuzzleValidator
 } from './Managers';
 
@@ -22,8 +21,5 @@ export {
     StockfishAdapter
 } from './Adapters';
 
-// === Decorators ===
-export * from './Decorators';
-
-// === Types (re-export everything) ===
+// === Types ===
 export * from './Types';
