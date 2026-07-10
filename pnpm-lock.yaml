@@ -33,8 +33,8 @@ importers:
         specifier: ^1.6.0
         version: 1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@chess-fw/core':
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: workspace:*
+        version: link:../../packages/core
       '@fontsource-variable/geist':
         specifier: ^5.2.9
         version: 5.2.9
@@ -362,9 +362,6 @@ packages:
 
   '@changesets/write@0.4.0':
     resolution: {integrity: sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q==}
-
-  '@chess-fw/core@2.0.0':
-    resolution: {integrity: sha512-5lkY0X6NNcGvp/c2Bqrm/OvCLSwhnK0CGYxrmC95wHXhC9krxAqpVR3sLlnThLlo9LV9qbjd7Zasibp8L0+LNQ==}
 
   '@dotenvx/dotenvx@1.75.1':
     resolution: {integrity: sha512-/BITOC9dmS/edY2zQwZNicQ059O6RKabtQfyEafV0nGtfYRNHYy1DIPiYVcov40+tob9hfmBnbR963dS+EQ1DQ==}
@@ -3763,10 +3760,6 @@ snapshots:
       fs-extra: 7.0.1
       human-id: 4.2.0
       prettier: 2.8.8
-
-  '@chess-fw/core@2.0.0':
-    dependencies:
-      chess.js: 1.4.0
 
   '@dotenvx/dotenvx@1.75.1':
     dependencies:
