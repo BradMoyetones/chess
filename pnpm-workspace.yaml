@@ -5,3 +5,4 @@ allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
   - tsx@4.22.5
+  - '@chess-fw/core'
