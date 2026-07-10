@@ -1,16 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { StockfishAdapter } from '../../src/Adapters/StockfishAdapter';
 import { EventBus } from '../../src/Core/EventBus';
-import { Container } from '../../src/Decorators/di.decorators';
 
 describe('StockfishAdapter', () => {
     let eventBus: EventBus;
     let adapter: StockfishAdapter;
 
     beforeEach(() => {
-        Container.clear();
-        eventBus = Container.resolve(EventBus);
-        adapter = Container.resolve(StockfishAdapter);
+        eventBus = new EventBus();
+        adapter = new StockfishAdapter(eventBus);
         
         // Mock isBrowser for tests since vitest runs in Node
         vi.stubGlobal('window', undefined);

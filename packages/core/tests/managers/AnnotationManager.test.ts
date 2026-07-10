@@ -2,16 +2,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AnnotationManager } from '../../src/Managers/AnnotationManager';
 import { EventBus } from '../../src/Core/EventBus';
-import { Container } from '../../src/Decorators/di.decorators';
 
 describe('AnnotationManager', () => {
     let manager: AnnotationManager;
     let eventBus: EventBus;
 
     beforeEach(() => {
-        Container.clear();
-        eventBus = Container.resolve(EventBus);
-        manager = Container.resolve(AnnotationManager);
+        eventBus = new EventBus();
+        manager = new AnnotationManager(eventBus);
     });
 
     it('should add an arrow annotation', () => {

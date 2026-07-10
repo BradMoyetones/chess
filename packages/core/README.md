@@ -1,10 +1,8 @@
 # @chess-fw/core
 
-A professional, event-driven, and highly decoupled chess framework core built with TypeScript. It provides a robust architecture for building advanced chess applications, complete with time travel (Game Tree), a centralized Event Bus, dependency injection, and extensible managers for themes, audio, annotations, and analysis engines like Stockfish.
+A professional, event-driven, framework-agnostic chess engine core built with TypeScript. Provides a complete architecture for building chess applications — from simple PGN viewers to full platforms like chess.com or lichess.org — with time travel (Game Tree), a centralized Event Bus, annotations, puzzles, and Stockfish integration.
 
 ## Installation
-
-You can install the core package using your preferred package manager:
 
 ```bash
 # Using npm
@@ -17,264 +15,458 @@ pnpm add @chess-fw/core
 yarn add @chess-fw/core
 ```
 
+## Quick Start
+
+```typescript
+import { ChessApp } from '@chess-fw/core';
+
+// 1. Create a chess application (one line!)
+const app = new ChessApp();
+
+// 2. Make moves
+app.move('e2', 'e4');
+app.move('e7', 'e5');
+
+// 3. Get the board state for your UI
+const snapshot = app.getSnapshot();
+console.log(snapshot.gameState.turn);  // 'w'
+console.log(snapshot.board[6][4].piece); // { type: 'p', color: 'w' } (pawn on e2... wait, it moved!)
+
+// 4. Undo / Redo
+app.undo();
+app.redo();
+
+// 5. Handle user clicks (selection + move logic built-in)
+app.click('d2'); // selects the pawn, calculates legal destinations
+app.click('d4'); // moves the pawn
+
+// 6. Clean up when done
+app.destroy();
+```
+
+### Multiple Independent Boards
+
+```typescript
+// Each ChessApp is fully isolated — no shared state
+const board1 = new ChessApp();
+const board2 = new ChessApp({ fen: 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2' });
+
+board1.move('e2', 'e4');
+// board2 is completely unaffected
+```
+
 ## Architecture
 
-`@chess-fw/core` is built around two primary architectural patterns:
+`@chess-fw/core` is built around two principles:
 
-1. **Dependency Injection (DI):** Instead of manually instantiating classes and managing their dependencies, the framework uses a centralized `Container`. As a consumer of the library, you only need to use the `Container.resolve()` method to retrieve singleton instances of the core services.
-2. **Event-Driven Design:** Modules do not call each other directly. Instead, they communicate by emitting and listening to events through a centralized `EventBus`. This ensures high decoupling and makes it trivial to plug in external UI frameworks (React, Vue, or terminal TUI).
+1. **Standalone Instances:** Each `ChessApp` encapsulates its own `EventBus`, `ChessEngine`, `InteractionManager`, and `AnnotationManager`. No global singletons, no shared state, no collisions.
+2. **Event-Driven Design:** Internal modules communicate through an `EventBus` using typed events. Your UI subscribes to events to stay reactive — framework-agnostic (React, Vue, Angular, Svelte, Vanilla JS).
 
 ---
 
 ## 📖 Table of Contents
 
-1. [Core Architecture](#1-core-architecture)
+1. [ChessApp (Facade)](#1-chessapp-facade)
+2. [Core Architecture](#2-core-architecture)
    - [EventBus](#eventbus)
-   - [MoveNode](#movenode)
-   - [GameTree](#gametree)
    - [ChessEngine](#chessengine)
    - [HeadlessBoard](#headlessboard)
-2. [Managers](#2-managers)
+   - [GameTree](#gametree)
+   - [MoveNode](#movenode)
+3. [Managers](#3-managers)
    - [InteractionManager](#interactionmanager)
    - [AnnotationManager](#annotationmanager)
-   - [ThemeManager](#thememanager)
-   - [AudioManager](#audiomanager)
-   - [HistoryManager](#historymanager)
    - [PuzzleValidator](#puzzlevalidator)
-3. [Adapters](#3-adapters)
+4. [Adapters](#4-adapters)
    - [StockfishAdapter](#stockfishadapter)
-4. [Types & Interfaces](#4-types--interfaces)
+5. [Types & Interfaces](#5-types--interfaces)
+6. [Events Reference](#6-events-reference)
 
 ---
 
-## 1. Core Architecture
+## 1. ChessApp (Facade)
+
+`ChessApp` is the recommended entry point. It wires all internal components for you.
+
+```typescript
+import { ChessApp } from '@chess-fw/core';
+
+const app = new ChessApp({
+    fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', // optional
+    mode: 'PLAY' // 'PLAY' | 'ANALYSIS' | 'SETUP' (optional, default: 'PLAY')
+});
+```
+
+### Shortcuts
+
+| Method | Description |
+|--------|-------------|
+| `getSnapshot()` | Returns the complete `BoardSnapshot` for your UI |
+| `move(from, to, promotion?)` | Executes a move, returns `MoveResult` |
+| `click(square)` | Handles click-to-move (selection → move → deselection) |
+| `undo()` / `redo()` | Time travel |
+| `destroy()` | Cleans up all event subscriptions and state |
+
+### Accessing Internal Components
+
+For advanced use cases, you can access the underlying components directly:
+
+```typescript
+app.engine       // ChessEngine instance
+app.board        // HeadlessBoard instance
+app.events       // EventBus instance
+app.interaction  // InteractionManager instance
+app.annotations  // AnnotationManager instance
+```
+
+---
+
+## 2. Core Architecture
 
 ### EventBus
-`EventBus` is the central publish-subscribe (PubSub) system of the framework. It is designed as an injectable service that facilitates communication between system components without direct coupling, backed by a strict typing system.
 
-#### Public Methods
-- `on(event, callback)`: Subscribes a callback to an event permanently.
-- `once(event, callback)`: Subscribes a callback to an event to be executed only once.
-- `off(event, callback)`: Unsubscribes a previously registered callback.
-- `emit(event, payload)`: Emits a specific event, triggering the synchronous execution of its subscribed callbacks.
-- `removeAllListeners(event?)`: Removes registered listeners, optionally filtered by event type.
+Central publish-subscribe system with typed events.
 
 ```typescript
-import { Container, EventBus } from '@chess-fw/core';
+const app = new ChessApp();
 
-const eventBus = Container.resolve(EventBus);
+// Subscribe — returns a cleanup function!
+const unsubscribe = app.events.on('PIECE_MOVED', (payload) => {
+    console.log(`Moved ${payload.piece} from ${payload.from} to ${payload.to}`);
+});
 
-const handleGameReset = (payload) => console.info('Game has been reset.', payload);
-eventBus.on('GAME_RESET', handleGameReset);
+// Unsubscribe (idiomatic for React useEffect / Vue onUnmounted)
+unsubscribe();
 
-eventBus.emit('MODE_CHANGED', { from: 'PLAY', to: 'ANALYSIS' });
+// Or use once() for one-shot listeners
+app.events.once('GAME_OVER', (payload) => {
+    console.log('Game ended!', payload.result);
+});
 ```
 
-### MoveNode
-Represents the atomic unit within the positional tree (`GameTree`). Each instance encapsulates a specific "moment" of the game.
-
-#### Properties
-- `id`: `string`
-- `fen`: `string`
-- `move`: `MoveData | null`
-- `parent`: `MoveNode | null`
-- `children`: `MoveNode[]`
-- `comment`: `string`
-- `halfMoveIndex`: `number`
-
-#### Public Methods
-- `addChild(node: MoveNode)`: Incorporates a child node.
-- `getMainLine()`: Returns the successor that has been consolidated as the primary path.
-- `getVariations()`: Returns an array of paths excluded from the primary line.
-- `isMainLine()`: Logically checks if the current context corresponds to the main line sequence.
-- `hasChildren()`: Indicates the ability to navigate deeper into the sequence.
-
-### GameTree
-Operates under a "Multiverse Manager" paradigm. It retains the complete graphical mapping of the chess history, enabling topological navigation across time.
-
-#### Public Methods
-- `getCurrentNode()`: Returns the currently active operational focus.
-- `getRootNode()`: Returns the pristine starting position of the series.
-- `goToNext()` / `goToPrev()`: Advances or regresses one step chronologically.
-- `goToRoot()` / `goToEnd()`: Transports to the extremities of the chronological line.
-- `goToNode(nodeId)`: Arbitrary jump within the tree using an ID.
-- `addMove(fen, move)`: Systematically implants a translation event.
-- `getMainLine()`: Returns the sequence forming the main line.
-
-```typescript
-import { Container, GameTree } from '@chess-fw/core';
-
-const tree = Container.resolve(GameTree);
-if (tree.canGoBack()) {
-    tree.goToPrev(); 
-}
-const mainLineMoves = tree.getMainLine();
-console.info(`Total nodes in main line: ${mainLineMoves.length}`);
-```
+#### Methods
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `on(event, callback)` | `() => void` | Subscribe. Returns cleanup function |
+| `once(event, callback)` | `() => void` | Subscribe for one event only |
+| `off(event, callback)` | `void` | Unsubscribe by reference |
+| `emit(event, payload)` | `void` | Emit an event |
+| `removeAllListeners(event?)` | `void` | Remove all listeners (optionally for specific event) |
 
 ### ChessEngine
-The primary Multi-Context State Manager of the ecosystem. It wraps strict chess rules, multi-branch analytical structuring, time travel, and transversal reactive emission.
 
-#### Public Methods
-- `initialize(initialFen?)`: Enables foundational anchoring.
-- `getPieceAt(square)`: Retrieves metadata of a square (`PieceData | null`).
-- `attemptMove(from, to, promotion?)`: Evaluates and executes a move. Returns a `MoveResult`.
-- `undo()` / `redo()`: Navigation of past/future states.
-- `setMode(mode: EngineMode)`: Modifies turn constraints ('PLAY'/'ANALYSIS'/'SETUP').
-- `loadFen(fen)` / `loadPgn(pgn)`: Massive state loading.
-- `getLegalMovesFor(square)`: Verifies landing viability.
-- `placePiece(square, type, color)`: Asymmetrically places pieces (Requires 'SETUP' mode).
+The core state manager. Wraps `chess.js` rules, manages the Game Tree, and emits events.
 
 ```typescript
-import { Container, ChessEngine } from '@chess-fw/core';
+const app = new ChessApp();
+const engine = app.engine;
 
-const engine = Container.resolve(ChessEngine);
-engine.setMode('ANALYSIS');
-
-const validDestinations = engine.getLegalMovesFor('e2');
-if (validDestinations.includes('e4')) {
-    const resolution = engine.attemptMove('e2', 'e4');
-    if (resolution.success) console.info(`FEN: ${engine.getFen()}`);
+// Make moves
+const result = engine.attemptMove('e2', 'e4');
+if (result.success) {
+    console.log(`FEN: ${engine.getFen()}`);
+    console.log(`Move: ${result.move.san}`); // "e4"
 }
+
+// Query state
+engine.getTurn();         // 'w' | 'b'
+engine.isCheck();         // boolean
+engine.isGameOver();      // boolean
+engine.getLegalMovesFor('d2'); // ['d3', 'd4']
+
+// Modes
+engine.setMode('ANALYSIS'); // Both colors can move freely
+engine.setMode('SETUP');    // Place/remove pieces
+engine.setMode('PLAY');     // Normal rules
+
+// SETUP mode
+engine.setMode('SETUP');
+engine.placePiece('e4', 'q', 'w');  // Place white queen on e4
+engine.removePiece('e4');            // Remove it
+engine.clearBoard();                 // Empty board
+
+// Time travel
+engine.undo();
+engine.redo();
+engine.goToStart();
+engine.goToEnd();
+engine.goToMove(nodeId);
+
+// Serialization
+engine.loadFen('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1');
+engine.loadPgn('1. e4 e5 2. Nf3 Nc6');
+engine.getFen();
+engine.getPgn();
+
+// History (migrated from the old HistoryManager)
+engine.getMoveHistory();       // MoveData[]
+engine.getMoveList();          // MoveData[] (main line)
+engine.getCurrentMoveIndex();  // number
+engine.getTotalMoves();        // number
 ```
 
 ### HeadlessBoard
-The bridge to materialize underlying logic with visualization models (UI Frameworks). Generates the `BoardSnapshot` (a massive snapshot consumable directly by React/Vue).
 
-#### Public Methods
-- `getBoardSnapshot(): BoardSnapshot`: Generator of passive topological, visual, and historical states.
-- `handleMove(from, to, promotion?)`: Sink for Drag & Drop events.
-- `handleSquareClick(square)`: Linker for click-to-move interactions.
+Generates the `BoardSnapshot` — a complete, framework-agnostic representation of the board state that any UI can consume.
 
 ```typescript
-import { Container, ChessEngine, HeadlessBoard, InteractionManager } from '@chess-fw/core';
+const app = new ChessApp();
+const snapshot = app.getSnapshot(); // or app.board.getBoardSnapshot()
 
-const engine = Container.resolve(ChessEngine);
-const interactionManager = Container.resolve(InteractionManager);
+// Structure:
+snapshot.gameState.turn        // 'w' | 'b'
+snapshot.gameState.fen         // current FEN
+snapshot.gameState.isCheck     // boolean
+snapshot.gameState.isGameOver  // boolean
+snapshot.gameState.mode        // 'PLAY' | 'ANALYSIS' | 'SETUP'
 
-const boardController = new HeadlessBoard(engine, { interactionManager });
-const snapshot = boardController.getBoardSnapshot();
+snapshot.board[0][0]           // SquareData for a8
+snapshot.board[7][7]           // SquareData for h1
 
-console.info(`Turn: ${snapshot.gameState.turn}`);
-console.info(`Square e4 color: ${snapshot.board[4][4].backgroundColor}`);
-boardController.handleSquareClick('e2');
+// Each SquareData:
+// {
+//   algebraic: 'e2',
+//   isLight: true,
+//   piece: { type: 'p', color: 'w' } | null,
+//   isSelected: false,
+//   isValidDestination: false,
+//   isLastMoveOrigin: false,
+//   isLastMoveDestination: false,
+//   isPremoveOrigin: false,
+//   isPremoveDestination: false,
+// }
+
+snapshot.visuals.lastMove          // { from, to } | null
+snapshot.visuals.selectedSquare    // string | null
+snapshot.visuals.validDestinations // string[]
+snapshot.visuals.premoves          // Premove[]
+snapshot.visuals.annotations       // Annotation[]
+
+snapshot.history.canUndo       // boolean
+snapshot.history.canRedo       // boolean
+snapshot.history.moveCount     // number
+snapshot.history.currentIndex  // number
+snapshot.history.hasVariations // boolean
 ```
+
+> **Note:** `SquareData` does not include `backgroundColor` or `skinUrl`. The UI is responsible for styling — use the `isLight` boolean to determine square colors, and `piece.type` + `piece.color` to map your own piece images.
+
+### GameTree
+
+N-ary tree structure that stores the complete move history with support for variations (branches).
+
+```typescript
+const tree = app.engine.getGameTree();
+
+tree.getCurrentNode();   // MoveNode
+tree.getMainLine();      // MoveNode[] (root to leaf)
+tree.hasVariations();    // boolean
+tree.goToNext();         // advance one move
+tree.goToPrev();         // go back one move
+tree.goToRoot();         // jump to start
+tree.goToEnd();          // jump to end
+```
+
+### MoveNode
+
+Represents a single position in the Game Tree.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `string` | Unique identifier (`node_1`, `node_2`, ...) |
+| `fen` | `string` | Board position at this node |
+| `move` | `MoveData \| null` | The move that led to this position |
+| `parent` | `MoveNode \| null` | Parent node |
+| `children` | `MoveNode[]` | Child nodes (variations) |
+| `comment` | `string` | User annotation |
+| `halfMoveIndex` | `number` | Position in the timeline |
 
 ---
 
-## 2. Managers
+## 3. Managers
 
 ### InteractionManager
-Bridge between user input and engine logic. Manages square selection, legal destinations, sequential click mechanics, and pre-moves.
 
-- `init()`: Initializes EventBus listeners.
-- `selectSquare(square)`: Processes clicks or touches.
-- `clearSelection()`, `clearPremoves()`: Clears states.
-- `getSelectedSquare()`, `getValidDestinations()`, `getPremoves()`: Retrieves UI state.
+Handles user input logic: click-to-move, piece selection, legal destination calculation, and pre-moves.
 
 ```typescript
-import { Container, InteractionManager } from '@chess-fw/core';
+const app = new ChessApp();
 
-const interactionManager = Container.resolve(InteractionManager);
-interactionManager.init();
-interactionManager.selectSquare('e2');
-const validDestinations = interactionManager.getValidDestinations();
+// Access via the facade
+app.click('e2'); // Selects the pawn
+
+// Or directly
+app.interaction.selectSquare('e2');
+app.interaction.getSelectedSquare();    // 'e2'
+app.interaction.getValidDestinations(); // ['e3', 'e4']
+app.interaction.clearSelection();
+
+// Pre-moves (click on out-of-turn pieces in PLAY mode)
+app.interaction.getPremoves();  // Premove[]
+app.interaction.clearPremoves();
+
+// Memory cleanup
+app.interaction.destroy(); // Unsubscribes all EventBus listeners
 ```
 
 ### AnnotationManager
-Provides a visual layer to draw arrows, circles, and highlights, vital for didactic tools and analysis.
 
-- `addArrow(from, to, color?)`, `addCircle(square, color?)`, `addHighlight(square, bg)`: Adds visuals and returns an ID.
-- `removeAnnotation(id)`, `clearAll()`, `clearByType(type)`: Removes visuals.
-- `getAnnotations()`, `getAnnotationsForSquare(square)`: Reads visual state.
+Visual annotation layer for arrows, circles, and highlights.
 
 ```typescript
-import { Container, AnnotationManager } from '@chess-fw/core';
-const annotationManager = Container.resolve(AnnotationManager);
-const arrowId = annotationManager.addArrow('d3', 'h7', 'red');
+const app = new ChessApp();
+
+// Add annotations
+const arrowId = app.annotations.addArrow('d3', 'h7', 'red');
+const circleId = app.annotations.addCircle('e4', 'green');
+const highlightId = app.annotations.addHighlight('f5', '#ff000044');
+
+// Toggle (add if missing, remove if present)
+app.annotations.toggleArrow('e2', 'e4', 'blue');
+app.annotations.toggleCircle('d4', 'yellow');
+
+// Query
+app.annotations.getAnnotations();             // Annotation[]
+app.annotations.getAnnotationsForSquare('e4'); // Annotation[]
+
+// Remove
+app.annotations.removeAnnotation(arrowId);
+app.annotations.clearAll();
+app.annotations.clearByType('arrow');
 ```
-
-### ThemeManager
-Manages visual and acoustic presentation, providing a reactive API for dynamic texture and color changes.
-
-- `initialize(initialTheme)`, `setTheme(newTheme)`: Defines global aesthetics.
-- `getSquareColor(isLight)`, `getSquareImage(isLight)`, `getPieceSkin(type, color)`: Retrieves static visual mappings.
-- `getSoundUrl(action)`: Extracts URLs of acoustic assets.
-
-### AudioManager
-Plays sounds reactively connected to the board (moves, captures, checks). Activates automatically upon resolution.
-
-```typescript
-import { Container, AudioManager } from '@chess-fw/core';
-// Initialization automatically assumes EventBus subscription
-const audioManager = Container.resolve(AudioManager);
-```
-
-### HistoryManager
-High-level layer for the positional tree. Provides export/import functionalities and time jumps.
-
-- `undo()`, `redo()`, `goToStart()`, `goToEnd()`, `goToMove(nodeId)`: Navigation.
-- `exportPgn()`, `importPgn(pgn)`, `exportFen()`, `importFen(fen)`: Data I/O.
-- `getMoveList()`, `getTotalMoves()`: Positional metadata.
 
 ### PuzzleValidator
-Tactical puzzle engine to compare user attempts against structured solutions.
 
-- `loadPuzzle(config)`: Initializes the tactical test and activates automated opponent responses.
-- `validatePlayerMove(moveSan)`: Determines tactical progress.
-- `isActive()`, `isComplete()`, `isFailed()`, `getProgress()`: Tactical session monitoring.
+Puzzle engine for tactical training with automatic opponent responses.
 
 ```typescript
-import { Container, PuzzleValidator } from '@chess-fw/core';
-const puzzleValidator = Container.resolve(PuzzleValidator);
+import { ChessApp, PuzzleValidator } from '@chess-fw/core';
 
-puzzleValidator.loadPuzzle({
+const app = new ChessApp();
+const puzzle = new PuzzleValidator(app.engine, app.events);
+
+puzzle.loadPuzzle({
     fen: 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 4 5',
     solution: ['Nxe5', 'Nxe5', 'd4'],
     playerColor: 'w'
 });
-puzzleValidator.validatePlayerMove('Nxe5');
+
+// Events fired: PUZZLE_STARTED
+
+const result = puzzle.validatePlayerMove('Nxe5');
+// result: 'correct' → fires PUZZLE_CORRECT_MOVE
+// Opponent auto-responds with 'Nxe5'
+
+puzzle.getProgress(); // { current: 1, total: 2 }
+puzzle.isActive();    // true
+puzzle.isComplete();  // false
+
+// On wrong move:
+puzzle.validatePlayerMove('Bc4'); // 'incorrect' → fires PUZZLE_FAILED
+puzzle.reset(); // Retry the same puzzle
 ```
 
 ---
 
-## 3. Adapters
+## 4. Adapters
 
 ### StockfishAdapter
-Multi-environment UCI abstraction for Node.js (native Child Process) or Browsers (WASM Web Workers). Provides analytical calculations and variations.
 
-#### Public Methods
-- `init(config: StockfishConfig)`: Wakes and configures the analysis engine.
-- `evaluate(fen, depth)`: Returns an `EvaluationData` resolved asynchronously.
-- `evaluateMultiPV(fen, lines)`: Analyzes multiple principal variations.
-- `getBestMove(fen, depth)`: Direct UCI attack extracting a single result.
-- `stop()`, `destroy()`: Temporary/permanent engine halt and invalidation.
+Multi-environment UCI engine adapter (Node.js child process or Browser WASM Web Workers).
 
 ```typescript
-import { Container, StockfishAdapter } from '@chess-fw/core';
+import { StockfishAdapter, EventBus } from '@chess-fw/core';
 import type { StockfishConfig, EvaluationData } from '@chess-fw/core';
 
-async function runAnalysis() {
-    const adapter = Container.resolve(StockfishAdapter);
-    await adapter.init({ binaryPath: '/path/to/stockfish', defaultDepth: 18, threads: 2 });
-    
-    if (adapter.isInitialized()) {
-        const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-        const evaluation: EvaluationData = await adapter.evaluate(fen, 15);
-        console.log(`Best move: ${evaluation.bestMove}`);
-    }
-}
+const eventBus = new EventBus();
+const stockfish = new StockfishAdapter(eventBus);
+
+// Initialize
+await stockfish.init({
+    binaryPath: '/path/to/stockfish',  // Node.js
+    // wasmPath: '/stockfish.wasm',    // Browser
+    defaultDepth: 18,
+    threads: 2,
+    hashSize: 128,
+    multiPV: 3
+});
+
+// Evaluate a position
+const evaluation: EvaluationData = await stockfish.evaluate(
+    'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+    15  // depth
+);
+console.log(`Best move: ${evaluation.bestMove}`);
+console.log(`Score: ${evaluation.score} centipawns`);
+
+// Multi-PV analysis
+const lines = await stockfish.evaluateMultiPV(fen, 3);
+
+// Quick best move
+const best = await stockfish.getBestMove(fen);
+
+// Cleanup
+stockfish.stop();    // Stop current analysis
+stockfish.destroy(); // Terminate engine process/worker
 ```
 
 ---
 
-## 4. Types & Interfaces
+## 5. Types & Interfaces
 
 | Type / Interface | Key Properties |
-| :--- | :--- |
-| `MoveData` | `from`, `to`, `piece`, `captured`, `san`, `isCheck`, `isCheckmate`, `fenAfter` |
-| `EvaluationData` | `score` (centipawns), `mate` (moves), `depth`, `pv` (string array), `bestMove` |
-| `StockfishConfig`| `wasmPath`, `binaryPath`, `defaultDepth`, `multiPV`, `threads`, `hashSize` |
-| `EngineMode` | `'PLAY'` (strict rules), `'ANALYSIS'` (loose rules), `'SETUP'` (board editor) |
-| `BoardSnapshot` | `gameState`, `board` (2D Grid), `visuals` (overlays/premoves), `history` |
-| `SquareData` | `algebraic`, `backgroundColor`, `piece`, `isSelected`, `isLastMoveOrigin` |
+|:---|:---|
+| `ChessAppConfig` | `fen?`, `mode?` |
+| `MoveData` | `from`, `to`, `piece`, `captured`, `san`, `lan`, `fenBefore`, `fenAfter`, `isCheck`, `isCheckmate`, `isCastle`, `isEnPassant`, `isPromotion` |
+| `MoveResult` | `{ success: true, move: MoveData }` \| `{ success: false, reason: string }` |
+| `BoardSnapshot` | `gameState`, `board` (8×8 `SquareData[][]`), `visuals`, `history` |
+| `SquareData` | `algebraic`, `isLight`, `piece`, `isSelected`, `isValidDestination`, `isLastMoveOrigin`, `isLastMoveDestination`, `isPremoveOrigin`, `isPremoveDestination` |
+| `EvaluationData` | `score`, `mate`, `depth`, `bestMove`, `ponder`, `pv`, `nodes`, `time` |
+| `StockfishConfig` | `wasmPath`, `binaryPath`, `defaultDepth`, `multiPV`, `threads`, `hashSize` |
+| `EngineMode` | `'PLAY'` \| `'ANALYSIS'` \| `'SETUP'` |
+| `PuzzleConfig` | `id?`, `fen`, `solution[]`, `playerColor`, `rating?`, `themes?` |
+| `Annotation` | `ArrowAnnotation` \| `CircleAnnotation` \| `HighlightAnnotation` |
+| `Premove` | `{ from: string, to: string }` |
+
+---
+
+## 6. Events Reference
+
+The `EventBus` emits typed events. Subscribe with `events.on(eventName, callback)`.
+
+| Event | Payload | When |
+|:---|:---|:---|
+| `BOARD_UPDATED` | `{}` | After any board state change |
+| `PIECE_MOVED` | `MovePayload` | Non-capture move executed |
+| `PIECE_CAPTURED` | `CapturePayload` | Capture move executed |
+| `CHECK` | `{ color }` | King is in check |
+| `GAME_OVER` | `{ result, winner? }` | Game ends (checkmate, draw, stalemate) |
+| `CASTLED` | `{ color, side }` | Castling executed |
+| `PROMOTED` | `{ color, piece, square }` | Pawn promotion |
+| `PROMOTION_REQUIRED` | `{ from, to, color }` | Pawn reaches last rank without promotion piece |
+| `MODE_CHANGED` | `{ from, to }` | Engine mode switched |
+| `SQUARE_SELECTED` | `{ square, legalMoves }` | User clicks a piece |
+| `SQUARE_DESELECTED` | `{}` | Selection cleared |
+| `PREMOVE_QUEUED` | `{ from, to }` | Pre-move added to queue |
+| `PREMOVE_EXECUTED` | `{ from, to }` | Pre-move successfully executed |
+| `PREMOVE_CANCELLED` | `{}` | Pre-move queue cleared |
+| `NAVIGATE_TO_MOVE` | `{ nodeId }` | Jumped to specific move in tree |
+| `POSITION_LOADED` | `{ fen }` | FEN or PGN loaded |
+| `GAME_RESET` | `{}` | Board reset to initial position |
+| `VARIATION_CREATED` | `{ parentNodeId, variationNodeId }` | New branch in Game Tree |
+| `ANNOTATION_ADDED` | `Annotation` | Annotation created |
+| `ANNOTATION_REMOVED` | `{ id }` | Annotation deleted |
+| `ANNOTATIONS_CLEARED` | `{}` | All annotations removed |
+| `PUZZLE_STARTED` | `PuzzleConfig` | Puzzle loaded |
+| `PUZZLE_CORRECT_MOVE` | `{ move, progress }` | Correct puzzle move |
+| `PUZZLE_FAILED` | `{ expectedMove, actualMove }` | Wrong puzzle move |
+| `PUZZLE_COMPLETED` | `{ totalMoves }` | Puzzle solved |
+| `ENGINE_READY` | `{}` | Stockfish initialized |
+| `EVALUATION_UPDATED` | `EvaluationData` | New evaluation from Stockfish |
+| `BEST_MOVE` | `{ move }` | Stockfish's best move |
+
+---
+
+## License
+
+MIT

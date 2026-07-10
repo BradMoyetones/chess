@@ -4,7 +4,6 @@ import { PuzzleValidator } from '../../src/Managers/PuzzleValidator';
 import { ChessEngine } from '../../src/Core/ChessEngine';
 import { EventBus } from '../../src/Core/EventBus';
 import type { PuzzleConfig } from '../../src/Types/puzzle.types';
-import { Container } from '../../src/Decorators/di.decorators';
 
 describe('PuzzleValidator', () => {
     let engine: ChessEngine;
@@ -12,10 +11,9 @@ describe('PuzzleValidator', () => {
     let validator: PuzzleValidator;
 
     beforeEach(() => {
-        Container.clear();
-        eventBus = Container.resolve(EventBus);
-        engine = Container.resolve(ChessEngine);
-        validator = Container.resolve(PuzzleValidator);
+        eventBus = new EventBus();
+        engine = new ChessEngine(eventBus);
+        validator = new PuzzleValidator(engine, eventBus);
     });
 
     // ═════════════════════════════════════════
