@@ -1,17 +1,18 @@
-import { ChessApp, type BoardSnapshot } from "@chess-fw/core";
-import Coordinates from "../components/coordinates";
-import { BoardAnnotations } from "../components/board/board-annotations";
-import { BoardHighlights } from "../components/board/board-highlights";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { type PieceSymbol } from "chess.js";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Loader2, Copy, ArrowLeft, ArrowRight } from "lucide-react";
-import { ScrollArea, ScrollBar } from "../components/ui/scroll-area";
-import { theme, coordinateColors } from "../lib/theme";
-import { io, Socket } from "socket.io-client";
-import { useParams, useNavigate } from "react-router";
-import { toast } from "sonner";
+import { ChessApp, type BoardSnapshot } from '@chess-fw/core';
+import Coordinates from '../components/coordinates';
+import { BoardAnnotations } from '../components/board/board-annotations';
+import { BoardHighlights } from '../components/board/board-highlights';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { type PieceSymbol } from 'chess.js';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Copy, ArrowLeft, ArrowRight, Clock } from 'lucide-react';
+import { ScrollArea, ScrollBar } from '../components/ui/scroll-area';
+import { theme, coordinateColors } from '../lib/theme';
+import { io, Socket } from 'socket.io-client';
+import { useParams, useNavigate } from 'react-router';
+import { toast } from 'sonner';
+import { Spinner } from '@/components/ui/spinner';
 
 const toCoords = (algebraic: string | null) => {
     if (!algebraic) return null;
@@ -27,8 +28,8 @@ export default function OnlinePlay() {
     const [status, setStatus] = useState<'lobby' | 'waiting' | 'playing'>('lobby');
     const [roomId, setRoomId] = useState<string>('');
     const [inputRoomId, setInputRoomId] = useState<string>('');
-    const [playerColor, setPlayerColor] = useState<'w'|'b'>('w');
-    
+    const [playerColor, setPlayerColor] = useState<'w' | 'b'>('w');
+
     // Generar un ID único persistente para reconexiones
     const [playerId] = useState(() => {
         let id = localStorage.getItem('chess_player_id');
@@ -38,7 +39,7 @@ export default function OnlinePlay() {
         }
         return id;
     });
-    
+
     const [app] = useState(() => new ChessApp());
 
     // ... refs and wrappers ...
@@ -50,22 +51,22 @@ export default function OnlinePlay() {
     const dropWrapper = useCallback((e: MouseEvent) => handleMouseUp.current(e), []);
     const annotationDropWrapper = useCallback((e: MouseEvent) => handleAnnotationDropRef.current(e), []);
 
-    const activePiece = useRef<HTMLElement | null>(null)
-    const chessboardRef = useRef<HTMLDivElement | null>(null)
-    const originSquare = useRef<string | null>(null)
-    const originalStyle = useRef<{ left: string, top: string, zIndex: string } | null>(null)
-    const annotationStartSquare = useRef<string | null>(null)
+    const activePiece = useRef<HTMLElement | null>(null);
+    const chessboardRef = useRef<HTMLDivElement | null>(null);
+    const originSquare = useRef<string | null>(null);
+    const originalStyle = useRef<{ left: string; top: string; zIndex: string } | null>(null);
+    const annotationStartSquare = useRef<string | null>(null);
 
     const [pendingPromotion, setPendingPromotion] = useState<{
-        from: string,
-        to: string,
-        color: 'w' | 'b',
-        dropX: number,
-        dropY: number
-    } | null>(null)
+        from: string;
+        to: string;
+        color: 'w' | 'b';
+        dropX: number;
+        dropY: number;
+    } | null>(null);
 
-    const [hoverSquare, setHoverSquare] = useState<string | null>(null)
-    const [boardSnapshot, setBoardSnapshot] = useState<BoardSnapshot | null>(null)
+    const [hoverSquare, setHoverSquare] = useState<string | null>(null);
+    const [boardSnapshot, setBoardSnapshot] = useState<BoardSnapshot | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const scrollToRight = useCallback(() => {
@@ -75,23 +76,26 @@ export default function OnlinePlay() {
         }
     }, []);
 
-    const emitMove = useCallback((moveData: any) => {
-        socket?.emit('move', { 
-            roomId, 
-            moveData,
-            fen: app.engine.getFen(),
-            pgn: app.engine.getPgn()
-        });
-    }, [socket, roomId, app]);
+    const emitMove = useCallback(
+        (moveData: any) => {
+            socket?.emit('move', {
+                roomId,
+                moveData,
+                fen: app.engine.getFen(),
+                pgn: app.engine.getPgn(),
+            });
+        },
+        [socket, roomId, app]
+    );
 
     useEffect(() => {
-        const newSocket = io('http://localhost:3001');
+        const newSocket = io('http://192.168.1.2:3001');
         setSocket(newSocket);
-        
+
         newSocket.on('opponent_joined', () => {
             setStatus('playing');
         });
-        
+
         newSocket.on('move_received', ({ moveData }) => {
             const mainLine = app.engine.getGameTree().getMainLine();
             if (mainLine.length > 0) {
@@ -101,19 +105,19 @@ export default function OnlinePlay() {
             app.interaction.clearSelection();
             setBoardSnapshot(app.getSnapshot());
         });
-        
+
         newSocket.on('opponent_disconnected', () => {
             setStatus('waiting');
-            toast.info("El oponente se ha desconectado. Esperando reconexión...");
+            toast.info('El oponente se ha desconectado. Esperando reconexión...');
         });
 
         newSocket.on('room_closed', () => {
             setStatus('lobby');
             setRoomId('');
-            toast.error("La sala fue cerrada por inactividad.");
+            toast.error('La sala fue cerrada por inactividad.');
             navigate('/online');
         });
-        
+
         if (urlRoomId) {
             newSocket.emit('join_room', { roomId: urlRoomId, playerId }, (res: any) => {
                 if (res.success) {
@@ -132,12 +136,14 @@ export default function OnlinePlay() {
                 }
             });
         }
-        
-        return () => { newSocket.close(); };
+
+        return () => {
+            newSocket.close();
+        };
     }, [app, urlRoomId, navigate, playerId]);
 
     useEffect(() => {
-        setBoardSnapshot(app.getSnapshot())
+        setBoardSnapshot(app.getSnapshot());
         const handleUpdate = () => {
             setBoardSnapshot(app.getSnapshot());
             if (!app.engine.canRedo()) setTimeout(scrollToRight, 50);
@@ -153,12 +159,12 @@ export default function OnlinePlay() {
         };
 
         const unsubs = [
-            app.events.on("BOARD_UPDATED", handleUpdate),
-            app.events.on("PREMOVE_CANCELLED", handleUpdate),
-            app.events.on("PREMOVE_QUEUED", handleUpdate),
-            app.events.on("PREMOVE_EXECUTED", handlePremoveExecuted)
+            app.events.on('BOARD_UPDATED', handleUpdate),
+            app.events.on('PREMOVE_CANCELLED', handleUpdate),
+            app.events.on('PREMOVE_QUEUED', handleUpdate),
+            app.events.on('PREMOVE_EXECUTED', handlePremoveExecuted),
         ];
-        return () => unsubs.forEach(unsub => unsub());
+        return () => unsubs.forEach((unsub) => unsub());
     }, [app, emitMove]);
 
     useEffect(() => {
@@ -172,20 +178,18 @@ export default function OnlinePlay() {
         return () => window.removeEventListener('mousedown', handleGlobalClick);
     }, [app]);
 
-    const handleCreateRoom = (color: 'w'|'b') => {
+    const handleCreateRoom = (color: 'w' | 'b') => {
         socket?.emit('create_room', { hostColor: color, playerId }, (res: any) => {
             if (res.success) {
                 navigate(`/online/${res.roomId}`);
             }
         });
     };
-    
+
     const handleJoinRoom = () => {
         if (!inputRoomId) return;
         navigate(`/online/${inputRoomId}`);
     };
-
-
 
     const movePiece = (e: MouseEvent) => {
         const chessboard = chessboardRef.current;
@@ -240,11 +244,21 @@ export default function OnlinePlay() {
                     const fromSquare = originSquare.current;
 
                     if (fromSquare && fromSquare !== targetAlgebraic) {
-                        const pieceSquare = boardSnapshot?.board.flat().find(s => s.algebraic === fromSquare);
+                        const pieceSquare = boardSnapshot?.board.flat().find((s) => s.algebraic === fromSquare);
                         const piece = pieceSquare?.piece;
 
-                        if (piece && piece.type === 'p' && ((piece.color === 'w' && targetRank === '8') || (piece.color === 'b' && targetRank === '1'))) {
-                            setPendingPromotion({ from: fromSquare, to: targetAlgebraic, color: piece.color, dropX: rawDropX, dropY: rawDropY });
+                        if (
+                            piece &&
+                            piece.type === 'p' &&
+                            ((piece.color === 'w' && targetRank === '8') || (piece.color === 'b' && targetRank === '1'))
+                        ) {
+                            setPendingPromotion({
+                                from: fromSquare,
+                                to: targetAlgebraic,
+                                color: piece.color,
+                                dropX: rawDropX,
+                                dropY: rawDropY,
+                            });
                         } else {
                             const turn = app.engine.getTurn();
                             if (piece && piece.color !== turn) {
@@ -252,19 +266,23 @@ export default function OnlinePlay() {
                                 app.interaction.selectSquare(targetAlgebraic);
                             } else {
                                 const premovesBefore = app.interaction.getPremoves();
-                                const premoveColors = premovesBefore.map((p: any) => app.engine.getPieceAt(p.from)?.color);
+                                const premoveColors = premovesBefore.map(
+                                    (p: any) => app.engine.getPieceAt(p.from)?.color
+                                );
 
                                 const result = app.engine.attemptMove(fromSquare, targetAlgebraic);
                                 if (result && result.success) {
                                     app.interaction.clearSelection();
-                                    
+
                                     // EL JUGADOR LOCAL HIZO UN MOVIMIENTO
                                     emitMove(result.move);
 
                                     const remainingPremoves = app.interaction.getPremoves();
                                     if (remainingPremoves.length > 0) {
                                         const firstRemaining = remainingPremoves[0];
-                                        const origIdx = premovesBefore.findIndex((p: any) => p.from === firstRemaining.from && p.to === firstRemaining.to);
+                                        const origIdx = premovesBefore.findIndex(
+                                            (p: any) => p.from === firstRemaining.from && p.to === firstRemaining.to
+                                        );
                                         const origColor = origIdx !== -1 ? premoveColors[origIdx] : null;
                                         if (origColor === app.engine.getTurn()) {
                                             app.interaction.clearPremoves();
@@ -320,7 +338,9 @@ export default function OnlinePlay() {
                 const targetSquare = `${targetFile}${targetRank}`;
 
                 if (targetSquare === annotationStartSquare.current) {
-                    const existingHighlight = app.annotations.getAnnotations().find((a: any) => a.type === 'highlight' && a.square === targetSquare);
+                    const existingHighlight = app.annotations
+                        .getAnnotations()
+                        .find((a: any) => a.type === 'highlight' && a.square === targetSquare);
                     if (existingHighlight) {
                         app.annotations.removeAnnotation(existingHighlight.id);
                     } else {
@@ -346,7 +366,7 @@ export default function OnlinePlay() {
             if (chessboard) {
                 const boardRect = chessboard.getBoundingClientRect();
                 const pieceSize = boardRect.width / 8;
-                
+
                 const rawDropX = Math.floor((e.clientX - boardRect.left) / pieceSize);
                 const rawDropY = Math.floor((e.clientY - boardRect.top) / pieceSize);
                 const dropX = playerColor === 'b' ? 7 - rawDropX : rawDropX;
@@ -362,39 +382,42 @@ export default function OnlinePlay() {
         }
     };
 
-    const safeHandleSquareClick = useCallback((algebraic: string) => {
-        if (app.engine.canRedo()) return; // Modo Lectura: bloquea interacciones si estamos en el pasado
-        
-        const piece = app.engine.getPieceAt(algebraic);
-        
-        // Bloqueo del oponente
-        if (!app.interaction.getSelectedSquare() && piece && piece.color !== playerColor) return;
+    const safeHandleSquareClick = useCallback(
+        (algebraic: string) => {
+            if (app.engine.canRedo()) return; // Modo Lectura: bloquea interacciones si estamos en el pasado
 
-        if (app.interaction.getSelectedSquare() === algebraic) {
-            app.interaction.clearSelection();
-            setBoardSnapshot(app.getSnapshot());
-            return;
-        }
+            const piece = app.engine.getPieceAt(algebraic);
 
-        const fenBefore = app.engine.getFen();
-        app.click(algebraic);
-        const fenAfter = app.engine.getFen();
+            // Bloqueo del oponente
+            if (!app.interaction.getSelectedSquare() && piece && piece.color !== playerColor) return;
 
-        if (fenBefore !== fenAfter) {
-            // Un movimiento fue ejecutado por app.click()
-            const lastMove = app.engine.getLastMove();
-            if (lastMove) {
-                emitMove(lastMove);
+            if (app.interaction.getSelectedSquare() === algebraic) {
+                app.interaction.clearSelection();
+                setBoardSnapshot(app.getSnapshot());
+                return;
             }
-        }
 
-        setBoardSnapshot(app.getSnapshot());
-    }, [app, playerColor, emitMove]);
+            const fenBefore = app.engine.getFen();
+            app.click(algebraic);
+            const fenAfter = app.engine.getFen();
+
+            if (fenBefore !== fenAfter) {
+                // Un movimiento fue ejecutado por app.click()
+                const lastMove = app.engine.getLastMove();
+                if (lastMove) {
+                    emitMove(lastMove);
+                }
+            }
+
+            setBoardSnapshot(app.getSnapshot());
+        },
+        [app, playerColor, emitMove]
+    );
 
     const grabPiece = (e: React.MouseEvent, squareAlgebraic: string) => {
         if (app.engine.canRedo()) return; // Modo Lectura
         if (e.button !== 0) return;
-        
+
         // Bloqueo del oponente
         const piece = app.engine.getPieceAt(squareAlgebraic);
         if (piece && piece.color !== playerColor) return;
@@ -414,7 +437,7 @@ export default function OnlinePlay() {
             originalStyle.current = {
                 left: element.style.left,
                 top: element.style.top,
-                zIndex: element.style.zIndex
+                zIndex: element.style.zIndex,
             };
 
             const boardRect = chessboard.getBoundingClientRect();
@@ -423,7 +446,7 @@ export default function OnlinePlay() {
             const x = e.clientX - boardRect.left - pieceSize / 2;
             const y = e.clientY - boardRect.top - pieceSize / 2;
 
-            element.style.zIndex = "100";
+            element.style.zIndex = '100';
             element.style.left = `${x}px`;
             element.style.top = `${y}px`;
 
@@ -442,20 +465,20 @@ export default function OnlinePlay() {
     const selectedPiece = selectedSquareAlg ? app.engine.getPieceAt(selectedSquareAlg) : null;
     const isSelectedTurn = selectedPiece ? selectedPiece.color === app.engine.getTurn() : false;
 
-    const validDestinations = isSelectedTurn 
-        ? (app.interaction.getValidDestinations() || []).map(sq => {
-            const coords = toCoords(sq);
-            return {
-                x: coords!.x,
-                y: coords!.y,
-                containsPiece: !!app.engine.getPieceAt(sq)
-            };
-        })
+    const validDestinations = isSelectedTurn
+        ? (app.interaction.getValidDestinations() || []).map((sq) => {
+              const coords = toCoords(sq);
+              return {
+                  x: coords!.x,
+                  y: coords!.y,
+                  containsPiece: !!app.engine.getPieceAt(sq),
+              };
+          })
         : [];
-        
+
     const premoves = app.interaction.getPremoves().map((pm: any) => ({
         from: toCoords(pm.from)!,
-        to: toCoords(pm.to)!
+        to: toCoords(pm.to)!,
     }));
 
     const coreAnnotations = app.annotations.getAnnotations();
@@ -465,16 +488,16 @@ export default function OnlinePlay() {
             id: a.id,
             from: toCoords(a.from)!,
             to: toCoords(a.to)!,
-            color: a.color === 'green' ? undefined : a.color
+            color: a.color === 'green' ? undefined : a.color,
         }));
-        
-        const mappedHighlights = coreAnnotations
+
+    const mappedHighlights = coreAnnotations
         .filter((a: any) => a.type === 'highlight')
         .map((a: any) => ({
             id: a.id,
             x: toCoords(a.square)!.x,
             y: toCoords(a.square)!.y,
-            color: a.color || a.backgroundColor
+            color: a.color || a.backgroundColor,
         }));
 
     const canUndo = app.engine.canUndo();
@@ -491,12 +514,22 @@ export default function OnlinePlay() {
                     </CardHeader>
                     <CardContent className="flex flex-col gap-6">
                         <div className="flex flex-col gap-3 p-4 bg-secondary/50 rounded-lg border">
-                            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Crear Sala Nueva</h3>
+                            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
+                                Crear Sala Nueva
+                            </h3>
                             <div className="grid grid-cols-2 gap-2">
-                                <Button variant="outline" className="border-primary/50 hover:bg-primary/10" onClick={() => handleCreateRoom('w')}>
+                                <Button
+                                    variant="outline"
+                                    className="border-primary/50 hover:bg-primary/10"
+                                    onClick={() => handleCreateRoom('w')}
+                                >
                                     Jugar con Blancas
                                 </Button>
-                                <Button variant="outline" className="bg-black text-white hover:bg-zinc-800" onClick={() => handleCreateRoom('b')}>
+                                <Button
+                                    variant="outline"
+                                    className="bg-black text-white hover:bg-zinc-800"
+                                    onClick={() => handleCreateRoom('b')}
+                                >
                                     Jugar con Negras
                                 </Button>
                             </div>
@@ -512,10 +545,12 @@ export default function OnlinePlay() {
                         </div>
 
                         <div className="flex flex-col gap-3 p-4 bg-secondary/50 rounded-lg border">
-                            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Unirse a Sala</h3>
+                            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
+                                Unirse a Sala
+                            </h3>
                             <div className="flex gap-2">
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                     placeholder="Room ID"
                                     value={inputRoomId}
@@ -538,12 +573,17 @@ export default function OnlinePlay() {
                         <CardTitle>Sala Creada</CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col items-center gap-6 pb-6">
-                        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                        <Spinner className="size-8" />
                         <div className="flex flex-col items-center gap-2">
                             <p className="text-sm text-muted-foreground">Comparte este código con tu oponente:</p>
                             <div className="flex items-center gap-2 bg-secondary px-4 py-2 rounded-md font-mono text-xl border shadow-inner">
                                 <span>{roomId}</span>
-                                <Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(roomId)} className="h-8 w-8 ml-2">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => navigator.clipboard.writeText(roomId)}
+                                    className="h-8 w-8 ml-2"
+                                >
                                     <Copy className="h-4 w-4" />
                                 </Button>
                             </div>
@@ -558,114 +598,162 @@ export default function OnlinePlay() {
     return (
         <div className="h-screen overflow-hidden p-2">
             <div className="flex flex-col md:flex-row gap-2 w-fit mx-auto">
-                <Card className="w-fit">
-                    <CardHeader className="flex flex-row justify-between items-center py-4">
-                        <CardTitle className="text-2xl font-bold">Online Play <span className="text-sm font-normal text-muted-foreground ml-2">Room: {roomId}</span></CardTitle>
-                        <div className="flex items-center gap-2">
-                            <span className="relative flex h-3 w-3">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                            </span>
-                            <span className="text-sm text-muted-foreground">Connected as {playerColor === 'w' ? 'White' : 'Black'}</span>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
-                        
-                        {/* Mobile History (Horizontal) */}
-                        <div className="md:hidden block w-full max-w-[calc(100vw-4rem)]">
-                            <ScrollArea className="w-full whitespace-nowrap rounded-md border bg-secondary/20" ref={scrollRef}>
-                                <div className="flex w-max space-x-2 p-2 items-center h-12">
-                                    {app.engine.getGameTree().getMainLine().slice(1).map((node: any, i: number) => (
+                <div>
+                    {/* Mobile History (Horizontal) */}
+                    <div className="md:hidden block w-full max-w-[calc(100vw-4rem)]">
+                        <ScrollArea
+                            className="w-full whitespace-nowrap rounded-md border bg-secondary/20"
+                            ref={scrollRef}
+                        >
+                            <div className="flex w-max space-x-2 p-2 items-center h-12">
+                                {app.engine
+                                    .getGameTree()
+                                    .getMainLine()
+                                    .slice(1)
+                                    .map((node: any, i: number) => (
                                         <div key={node.id} className="inline-flex items-center gap-1">
-                                            {i % 2 === 0 && <span className="text-muted-foreground text-xs font-mono ml-2">{i / 2 + 1}.</span>}
+                                            {i % 2 === 0 && (
+                                                <span className="text-muted-foreground text-xs font-mono ml-2">
+                                                    {i / 2 + 1}.
+                                                </span>
+                                            )}
                                             <Button
-                                                variant={app.engine.getGameTree().getCurrentNode().id === node.id ? 'default' : 'secondary'}
+                                                variant={
+                                                    app.engine.getGameTree().getCurrentNode().id === node.id
+                                                        ? 'default'
+                                                        : 'secondary'
+                                                }
                                                 size="sm"
                                                 className="h-7 text-xs px-2"
-                                                onClick={() => { app.engine.goToMove(node.id); setBoardSnapshot(app.getSnapshot()); }}
+                                                onClick={() => {
+                                                    app.engine.goToMove(node.id);
+                                                    setBoardSnapshot(app.getSnapshot());
+                                                }}
                                             >
                                                 {node.move?.san}
                                             </Button>
                                         </div>
                                     ))}
+                            </div>
+                            <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                    </div>
+
+                    <header className="py-2">
+                        <div className="flex justify-between">
+                            <div className="flex gap-4">
+                                <div>
+                                    <img
+                                        className="rounded-sm"
+                                        loading="lazy"
+                                        src="/assets/images/players/player-1.webp"
+                                        alt="Avatar"
+                                        height="40"
+                                        width="40"
+                                    />
                                 </div>
-                                <ScrollBar orientation="horizontal" />
-                            </ScrollArea>
+                                <div>
+                                    <h1 className="font-semibold text-md">Name 1</h1>
+                                    <div className=" text-sm text-muted-foreground">Piezas capturadas</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-8 bg-background/30 px-3 rounded-md">
+                                <Clock className="text-muted-foreground" />
+                                <div className="font-bold">2:00</div>
+                            </div>
                         </div>
+                    </header>
 
-                        <div className="flex flex-col w-full">
-                            <div 
-                                className="board-height board-width contain-layout relative"
-                                onContextMenu={(e) => e.preventDefault()}
-                                onMouseDown={handleBoardMouseDown}
+                    <div className="flex flex-col w-full">
+                        <div
+                            className="board-height board-width contain-layout relative"
+                            onContextMenu={(e) => e.preventDefault()}
+                            onMouseDown={handleBoardMouseDown}
+                        >
+                            <div
+                                className="inset-0 absolute bg-cover bg-center select-none rounded-md"
+                                style={{ backgroundImage: `url(${theme.board.backgroundImage})` }}
+                                ref={chessboardRef}
                             >
-                                <div
-                                    className="inset-0 absolute bg-cover bg-center select-none rounded-md"
-                                    style={{ backgroundImage: `url(${theme.board.backgroundImage})` }}
-                                    ref={chessboardRef}
-                                >
-                                    <BoardHighlights
-                                        selectedSquare={toCoords(selectedSquareAlg)}
-                                        lastMove={app.engine.getLastMove() ? {
-                                            from: toCoords(app.engine.getLastMove()!.from)!,
-                                            to: toCoords(app.engine.getLastMove()!.to)!
-                                        } : null}
-                                        validDestinations={validDestinations}
-                                        hoverSquare={toCoords(hoverSquare)}
-                                        premoves={premoves}
-                                        flipped={playerColor === 'b'}
-                                    />
-                                    
-                                    <BoardAnnotations 
-                                        arrows={mappedArrows}
-                                        highlights={mappedHighlights}
-                                        flipped={playerColor === 'b'}
-                                    />
+                                <BoardHighlights
+                                    selectedSquare={toCoords(selectedSquareAlg)}
+                                    lastMove={
+                                        app.engine.getLastMove()
+                                            ? {
+                                                  from: toCoords(app.engine.getLastMove()!.from)!,
+                                                  to: toCoords(app.engine.getLastMove()!.to)!,
+                                              }
+                                            : null
+                                    }
+                                    validDestinations={validDestinations}
+                                    hoverSquare={toCoords(hoverSquare)}
+                                    premoves={premoves}
+                                    flipped={playerColor === 'b'}
+                                />
 
-                                    {pendingPromotion && (
-                                        <>
-                                            <div className="absolute inset-0 z-40 pointer-events-auto" onClick={() => setPendingPromotion(null)} />
-                                            <div
-                                                className={`absolute z-50 flex ${pendingPromotion.color === 'w' ? 'flex-col' : 'flex-col-reverse'} bg-white dark:bg-black shadow-2xl rounded-md overflow-hidden pointer-events-auto`}
-                                                style={{
-                                                    left: `${pendingPromotion.dropX * 12.5}%`,
-                                                    ...(pendingPromotion.color === 'w'
-                                                        ? { top: `${pendingPromotion.dropY * 12.5}%` }
-                                                        : { bottom: `${(7 - pendingPromotion.dropY) * 12.5}%` }),
-                                                    width: '12.5%'
-                                                }}
-                                            >
-                                                {(['q', 'n', 'r', 'b'] as PieceSymbol[]).map(pieceType => (
-                                                    <div
-                                                        key={pieceType}
-                                                        className="w-full aspect-square hover:bg-muted/50 cursor-pointer flex items-center justify-center transition-colors"
-                                                        onClick={() => handlePromotionSelect(pieceType)}
-                                                    >
-                                                        <img src={theme.pieces[pieceType as keyof typeof theme.pieces][pendingPromotion.color]} alt={pieceType} className="w-[85%] h-[85%] object-contain drop-shadow-md" />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
+                                <BoardAnnotations
+                                    arrows={mappedArrows}
+                                    highlights={mappedHighlights}
+                                    flipped={playerColor === 'b'}
+                                />
 
-                                    {boardSnapshot && boardSnapshot.board.flatMap((row, rowIndex) =>
+                                {pendingPromotion && (
+                                    <>
+                                        <div
+                                            className="absolute inset-0 z-40 pointer-events-auto"
+                                            onClick={() => setPendingPromotion(null)}
+                                        />
+                                        <div
+                                            className={`absolute z-50 flex ${pendingPromotion.color === 'w' ? 'flex-col' : 'flex-col-reverse'} bg-white dark:bg-black shadow-2xl rounded-md overflow-hidden pointer-events-auto`}
+                                            style={{
+                                                left: `${pendingPromotion.dropX * 12.5}%`,
+                                                ...(pendingPromotion.color === 'w'
+                                                    ? { top: `${pendingPromotion.dropY * 12.5}%` }
+                                                    : { bottom: `${(7 - pendingPromotion.dropY) * 12.5}%` }),
+                                                width: '12.5%',
+                                            }}
+                                        >
+                                            {(['q', 'n', 'r', 'b'] as PieceSymbol[]).map((pieceType) => (
+                                                <div
+                                                    key={pieceType}
+                                                    className="w-full aspect-square hover:bg-muted/50 cursor-pointer flex items-center justify-center transition-colors"
+                                                    onClick={() => handlePromotionSelect(pieceType)}
+                                                >
+                                                    <img
+                                                        src={
+                                                            theme.pieces[pieceType as keyof typeof theme.pieces][
+                                                                pendingPromotion.color
+                                                            ]
+                                                        }
+                                                        alt={pieceType}
+                                                        className="w-[85%] h-[85%] object-contain drop-shadow-md"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+
+                                {boardSnapshot &&
+                                    boardSnapshot.board.flatMap((row, rowIndex) =>
                                         row.map((square, colIndex) => {
                                             const renderRow = playerColor === 'b' ? 7 - rowIndex : rowIndex;
                                             const renderCol = playerColor === 'b' ? 7 - colIndex : colIndex;
-                                            
+
                                             return (
                                                 <div
                                                     key={`sq-int-${square.algebraic}`}
                                                     className="absolute w-[12.5%] h-[12.5%] flex items-center justify-center cursor-pointer pointer-events-auto z-25"
                                                     style={{
                                                         top: `${renderRow * 12.5}%`,
-                                                        left: `${renderCol * 12.5}%`
+                                                        left: `${renderCol * 12.5}%`,
                                                     }}
                                                     onMouseDown={(e) => {
                                                         if (e.button === 0) {
                                                             safeHandleSquareClick(square.algebraic);
                                                             if (square.piece) {
-                                                                const isHint = square.isValidDestination && isSelectedTurn;
+                                                                const isHint =
+                                                                    square.isValidDestination && isSelectedTurn;
                                                                 if (!isHint) grabPiece(e, square.algebraic);
                                                             }
                                                         }
@@ -673,7 +761,11 @@ export default function OnlinePlay() {
                                                 >
                                                     {square.piece && (
                                                         <img
-                                                            src={theme.pieces[square.piece.type as keyof typeof theme.pieces][square.piece.color]}
+                                                            src={
+                                                                theme.pieces[
+                                                                    square.piece.type as keyof typeof theme.pieces
+                                                                ][square.piece.color]
+                                                            }
                                                             alt={square.piece.type}
                                                             className={`w-full h-full object-contain pointer-events-none relative`}
                                                             data-square={square.algebraic}
@@ -683,57 +775,126 @@ export default function OnlinePlay() {
                                             );
                                         })
                                     )}
+                            </div>
+                            <Coordinates
+                                className="pointer-events-none z-30 relative"
+                                light={coordinateColors.light}
+                                dark={coordinateColors.dark}
+                                flipped={playerColor === 'b'}
+                            />
+                        </div>
+                    </div>
+                    <header className="py-2">
+                        <div className="flex justify-between">
+                            <div className="flex gap-4">
+                                <div>
+                                    <img
+                                        className="rounded-sm"
+                                        loading="lazy"
+                                        src="/assets/images/players/player-2.webp"
+                                        alt="Avatar"
+                                        height="40"
+                                        width="40"
+                                    />
                                 </div>
-                                <Coordinates className="pointer-events-none z-30 relative" light={coordinateColors.light} dark={coordinateColors.dark} flipped={playerColor === 'b'} />
+                                <div>
+                                    <h1 className="font-semibold text-md">Name 2</h1>
+                                    <div className=" text-sm text-muted-foreground">Piezas capturadas</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-8 bg-background/30 px-3 rounded-md">
+                                <Clock className="text-muted-foreground" />
+                                <div className="font-bold">2:00</div>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    </header>
+                </div>
 
                 {/* Desktop History (Vertical Sidebar) */}
-                <Card className="hidden md:flex flex-col w-64 h-fit">
-                    <CardHeader className="py-4">
-                        <CardTitle className="text-xl">History</CardTitle>
+                <Card className="hidden md:flex w-[300px]">
+                    <CardHeader>
+                        <CardTitle>History</CardTitle>
                     </CardHeader>
                     <CardContent className="overflow-y-auto flex-1 p-0">
                         <div className="flex flex-col text-sm">
-                            {app.engine.getGameTree().getMainLine().length > 1 ? app.engine.getGameTree().getMainLine().slice(1).reduce((acc: any, node: any, i: number) => {
-                                if (i % 2 === 0) acc.push({ turn: i / 2 + 1, white: node, black: null });
-                                else acc[acc.length - 1].black = node;
-                                return acc;
-                            }, [] as any[]).map((pair: any) => (
-                                <div key={pair.turn} className="flex items-center px-4 py-1.5 hover:bg-muted/30 group border-b border-border/50">
-                                    <div className="w-8 text-muted-foreground font-mono select-none flex items-center">{pair.turn}.</div>
-                                    <div className="grid w-full grid-cols-2 gap-2">
-                                        <Button
-                                            variant={app.engine.getGameTree().getCurrentNode().id === pair.white.id ? 'default' : 'secondary'}
-                                            size="sm"
-                                            onClick={() => { app.engine.goToMove(pair.white.id); setBoardSnapshot(app.getSnapshot()); }}
-                                            className={"w-full h-7 text-xs"}
+                            {app.engine.getGameTree().getMainLine().length > 1 ? (
+                                app.engine
+                                    .getGameTree()
+                                    .getMainLine()
+                                    .slice(1)
+                                    .reduce((acc: any, node: any, i: number) => {
+                                        if (i % 2 === 0) acc.push({ turn: i / 2 + 1, white: node, black: null });
+                                        else acc[acc.length - 1].black = node;
+                                        return acc;
+                                    }, [] as any[])
+                                    .map((pair: any) => (
+                                        <div
+                                            key={pair.turn}
+                                            className="flex items-center px-4 py-1.5 hover:bg-muted/30 group border-b border-border/50"
                                         >
-                                            {pair.white.move?.san}
-                                        </Button>
-                                        {pair.black && (
-                                            <Button
-                                                variant={app.engine.getGameTree().getCurrentNode().id === pair.black.id ? 'default' : 'secondary'}
-                                                size="sm"
-                                                onClick={() => { app.engine.goToMove(pair.black.id); setBoardSnapshot(app.getSnapshot()); }}
-                                            className={"w-full h-7 text-xs"}
-                                            >
-                                                {pair.black.move?.san}
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
-                            )) : <div className="text-center py-4 text-muted-foreground">No moves yet</div>}
+                                            <div className="w-8 text-muted-foreground font-mono select-none flex items-center">
+                                                {pair.turn}.
+                                            </div>
+                                            <div className="grid w-full grid-cols-2 gap-2">
+                                                <Button
+                                                    variant={
+                                                        app.engine.getGameTree().getCurrentNode().id === pair.white.id
+                                                            ? 'default'
+                                                            : 'secondary'
+                                                    }
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        app.engine.goToMove(pair.white.id);
+                                                        setBoardSnapshot(app.getSnapshot());
+                                                    }}
+                                                    className={'w-fit'}
+                                                >
+                                                    {pair.white.move?.san}
+                                                </Button>
+                                                {pair.black && (
+                                                    <Button
+                                                        variant={
+                                                            app.engine.getGameTree().getCurrentNode().id ===
+                                                            pair.black.id
+                                                                ? 'default'
+                                                                : 'secondary'
+                                                        }
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            app.engine.goToMove(pair.black.id);
+                                                            setBoardSnapshot(app.getSnapshot());
+                                                        }}
+                                                        className={'w-fit'}
+                                                    >
+                                                        {pair.black.move?.san}
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                            ) : (
+                                <div className="text-center py-4 text-muted-foreground">No moves yet</div>
+                            )}
                         </div>
                     </CardContent>
                     <CardFooter>
                         <div className="flex gap-2 w-full justify-center md:justify-start">
-                            <Button disabled={!canUndo} onClick={() => { app.engine.undo(); setBoardSnapshot(app.getSnapshot()); }}>
+                            <Button
+                                disabled={!canUndo}
+                                onClick={() => {
+                                    app.engine.undo();
+                                    setBoardSnapshot(app.getSnapshot());
+                                }}
+                            >
                                 <ArrowLeft className="h-5 w-5" />
                             </Button>
-                            <Button disabled={!canRedo} onClick={() => { app.engine.redo(); setBoardSnapshot(app.getSnapshot()); }}>
+                            <Button
+                                disabled={!canRedo}
+                                onClick={() => {
+                                    app.engine.redo();
+                                    setBoardSnapshot(app.getSnapshot());
+                                }}
+                            >
                                 <ArrowRight className="h-5 w-5" />
                             </Button>
                         </div>
