@@ -7,7 +7,6 @@ import { type PieceSymbol } from 'chess.js';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Copy, ArrowLeft, ArrowRight, Clock } from 'lucide-react';
-import { ScrollArea, ScrollBar } from '../components/ui/scroll-area';
 import { theme, coordinateColors } from '../lib/theme';
 import { io, Socket } from 'socket.io-client';
 import { useParams, useNavigate } from 'react-router';
@@ -61,12 +60,12 @@ export default function OnlinePlay() {
     const [app] = useState(() => new ChessApp());
 
     // ... refs and wrappers ...
-    const handleMouseMove = useRef<(e: MouseEvent) => void>(() => { });
-    const handleMouseUp = useRef<(e: MouseEvent) => void>(() => { });
+    const handleMouseMove = useRef<(e: MouseEvent | TouchEvent) => void>(() => { });
+    const handleMouseUp = useRef<(e: MouseEvent | TouchEvent) => void>(() => { });
     const handleAnnotationDropRef = useRef<(e: MouseEvent) => void>(() => { });
 
-    const moveWrapper = useCallback((e: MouseEvent) => handleMouseMove.current(e), []);
-    const dropWrapper = useCallback((e: MouseEvent) => handleMouseUp.current(e), []);
+    const moveWrapper = useCallback((e: MouseEvent | TouchEvent) => handleMouseMove.current(e), []);
+    const dropWrapper = useCallback((e: MouseEvent | TouchEvent) => handleMouseUp.current(e), []);
     const annotationDropWrapper = useCallback((e: MouseEvent) => handleAnnotationDropRef.current(e), []);
 
     const activePiece = useRef<HTMLElement | null>(null);
@@ -137,7 +136,7 @@ export default function OnlinePlay() {
     );
 
     useEffect(() => {
-        const newSocket = io('http://localhost:3001');
+        const newSocket = io('http://192.168.68.103:3001');
         setSocket(newSocket);
 
         newSocket.on('opponent_joined', (data) => {
@@ -336,14 +335,18 @@ export default function OnlinePlay() {
         navigate(`/online/${inputRoomId}`);
     };
 
-    const movePiece = (e: MouseEvent) => {
+    const movePiece = (e: MouseEvent | TouchEvent) => {
         const chessboard = chessboardRef.current;
         if (activePiece.current && chessboard) {
             const boardRect = chessboard.getBoundingClientRect();
             const pieceSize = boardRect.width / 8;
 
-            let x = e.clientX - boardRect.left - pieceSize / 2;
-            let y = e.clientY - boardRect.top - pieceSize / 2;
+            const isTouch = 'touches' in e;
+            const clientX = isTouch ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
+            const clientY = isTouch ? (e as TouchEvent).touches[0].clientY : (e as MouseEvent).clientY;
+
+            let x = clientX - boardRect.left - pieceSize / 2;
+            let y = clientY - boardRect.top - pieceSize / 2;
 
             const maxX = boardRect.width - pieceSize;
             const maxY = boardRect.height - pieceSize;
@@ -354,8 +357,8 @@ export default function OnlinePlay() {
             activePiece.current.style.left = `${x}px`;
             activePiece.current.style.top = `${y}px`;
 
-            const rawDropX = Math.floor((e.clientX - boardRect.left) / pieceSize);
-            const rawDropY = Math.floor((e.clientY - boardRect.top) / pieceSize);
+            const rawDropX = Math.floor((clientX - boardRect.left) / pieceSize);
+            const rawDropY = Math.floor((clientY - boardRect.top) / pieceSize);
             const dropX = playerColor === 'b' ? 7 - rawDropX : rawDropX;
             const dropY = playerColor === 'b' ? 7 - rawDropY : rawDropY;
 
@@ -369,15 +372,19 @@ export default function OnlinePlay() {
         }
     };
 
-    const dropPiece = (e: MouseEvent) => {
+    const dropPiece = (e: MouseEvent | TouchEvent) => {
         try {
             const chessboard = chessboardRef.current;
             if (activePiece.current && chessboard) {
                 const boardRect = chessboard.getBoundingClientRect();
                 const pieceSize = boardRect.width / 8;
 
-                const rawDropX = Math.floor((e.clientX - boardRect.left) / pieceSize);
-                const rawDropY = Math.floor((e.clientY - boardRect.top) / pieceSize);
+                const isTouch = 'changedTouches' in e;
+                const clientX = isTouch ? (e as TouchEvent).changedTouches[0].clientX : (e as MouseEvent).clientX;
+                const clientY = isTouch ? (e as TouchEvent).changedTouches[0].clientY : (e as MouseEvent).clientY;
+
+                const rawDropX = Math.floor((clientX - boardRect.left) / pieceSize);
+                const rawDropY = Math.floor((clientY - boardRect.top) / pieceSize);
                 const dropX = playerColor === 'b' ? 7 - rawDropX : rawDropX;
                 const dropY = playerColor === 'b' ? 7 - rawDropY : rawDropY;
 
@@ -450,6 +457,8 @@ export default function OnlinePlay() {
             originSquare.current = null;
             window.removeEventListener('mousemove', moveWrapper);
             window.removeEventListener('mouseup', dropWrapper);
+            window.removeEventListener('touchmove', moveWrapper);
+            window.removeEventListener('touchend', dropWrapper);
             setBoardSnapshot(app.getSnapshot());
         }
     };
@@ -569,9 +578,10 @@ export default function OnlinePlay() {
         [app, playerColor, emitMove]
     );
 
-    const grabPiece = (e: React.MouseEvent, squareAlgebraic: string) => {
+    const grabPiece = (e: React.MouseEvent | React.TouchEvent, squareAlgebraic: string) => {
         if (app.engine.canRedo()) return; // Modo Lectura
-        if (e.button !== 0) return;
+        const isMouse = 'button' in e;
+        if (isMouse && (e as React.MouseEvent).button !== 0) return;
 
         // Bloqueo del oponente
         const piece = app.engine.getPieceAt(squareAlgebraic);
@@ -598,8 +608,12 @@ export default function OnlinePlay() {
             const boardRect = chessboard.getBoundingClientRect();
             const pieceSize = boardRect.width / 8;
 
-            const x = e.clientX - boardRect.left - pieceSize / 2;
-            const y = e.clientY - boardRect.top - pieceSize / 2;
+            const isTouch = 'touches' in e;
+            const clientX = isTouch ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
+            const clientY = isTouch ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
+
+            const x = clientX - boardRect.left - pieceSize / 2;
+            const y = clientY - boardRect.top - pieceSize / 2;
 
             element.style.zIndex = '100';
             element.style.left = `${x}px`;
@@ -609,6 +623,8 @@ export default function OnlinePlay() {
 
             window.addEventListener('mousemove', moveWrapper);
             window.addEventListener('mouseup', dropWrapper);
+            window.addEventListener('touchmove', moveWrapper, { passive: false });
+            window.addEventListener('touchend', dropWrapper);
         }
     };
 
@@ -810,9 +826,6 @@ export default function OnlinePlay() {
     const localColor = playerColor;
     const opponentColor = playerColor === 'w' ? 'b' : 'w';
 
-    const localMat = localColor === 'w' ? materialW : materialB;
-    const oppMat = opponentColor === 'w' ? materialW : materialB;
-
     const renderPlayerInfo = (player: any, color: 'w' | 'b', _isOpponent: boolean) => {
         if (!player) return null;
 
@@ -972,6 +985,7 @@ export default function OnlinePlay() {
                                                     style={{
                                                         top: `${renderRow * 12.5}%`,
                                                         left: `${renderCol * 12.5}%`,
+                                                        touchAction: 'none'
                                                     }}
                                                     onMouseDown={(e) => {
                                                         if (e.button === 0) {
@@ -980,6 +994,13 @@ export default function OnlinePlay() {
                                                                 const isHint = square.isValidDestination && isSelectedTurn;
                                                                 if (!isHint) grabPiece(e, square.algebraic);
                                                             }
+                                                        }
+                                                    }}
+                                                    onTouchStart={(e) => {
+                                                        safeHandleSquareClick(square.algebraic);
+                                                        if (square.piece) {
+                                                            const isHint = square.isValidDestination && isSelectedTurn;
+                                                            if (!isHint) grabPiece(e, square.algebraic);
                                                         }
                                                     }}
                                                 >
