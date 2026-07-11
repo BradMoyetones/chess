@@ -1,6 +1,7 @@
 import { createBrowserRouter, type RouteObject } from "react-router";
 import Chess from "./pages/Chess";
-import OnlinePlay from "./pages/OnlinePlay";
+import OnlineLobby from "./pages/online/index";
+import OnlineMatch from "./pages/online/[id]/index";
 
 const routes: RouteObject[] = [
     {
@@ -8,8 +9,12 @@ const routes: RouteObject[] = [
         element: <Chess />,
     },
     {
-        path: "/online/:id?",
-        element: <OnlinePlay />,
+        path: "/online",
+        element: <OnlineLobby />,
+    },
+    {
+        path: "/online/:id",
+        element: <OnlineMatch />,
     }
 ]
 
