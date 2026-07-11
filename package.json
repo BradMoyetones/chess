@@ -8,7 +8,7 @@
     "name": "Brad Moyetones",
     "url": "https://github.com/BradMoyetones"
   },
-  "packageManager": "pnpm@11.10.0",
+  "packageManager": "pnpm@11.11.0",
   "workspaces": [
     "apps/*",
     "packages/*"
