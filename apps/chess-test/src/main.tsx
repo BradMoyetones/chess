@@ -13,7 +13,7 @@ createRoot(document.getElementById('root')!).render(
             defaultTheme="dark"
             disableTransitionOnChange
         >
-            <main className='bg-muted'>
+            <main>
                 <RouterProvider router={router} />
             </main>
             <Toaster />

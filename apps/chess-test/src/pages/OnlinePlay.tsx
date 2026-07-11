@@ -33,16 +33,16 @@ export default function OnlinePlay() {
     // Perfiles
     const [playerName, setPlayerName] = useState(() => localStorage.getItem('chess_player_name') || '');
     const [playerAvatar, setPlayerAvatar] = useState(() => localStorage.getItem('chess_player_avatar') || '/assets/images/players/player-1.webp');
-    const [selectedTimeCategory, setSelectedTimeCategory] = useState<'none'|'bullet'|'blitz'|'rapid'>('none');
-    const [selectedTime, setSelectedTime] = useState<{initial: number, increment: number} | null>(null);
-    const [selectedColor, setSelectedColor] = useState<'w'|'b'|'random'>('random');
+    const [selectedTimeCategory, setSelectedTimeCategory] = useState<'none' | 'bullet' | 'blitz' | 'rapid'>('none');
+    const [selectedTime, setSelectedTime] = useState<{ initial: number, increment: number } | null>(null);
+    const [selectedColor, setSelectedColor] = useState<'w' | 'b' | 'random'>('random');
 
     // Server Sync
-    const [serverPlayers, setServerPlayers] = useState<{host: any, guest: any} | null>(null);
+    const [serverPlayers, setServerPlayers] = useState<{ host: any, guest: any } | null>(null);
     const [serverTurn, setServerTurn] = useState<'w' | 'b'>('w');
     const [lastMoveTime, setLastMoveTime] = useState<number | null>(null);
-    const [timeControl, setTimeControl] = useState<{initial: number, increment: number} | null>(null);
-    
+    const [timeControl, setTimeControl] = useState<{ initial: number, increment: number } | null>(null);
+
     const [localWhiteTime, setLocalWhiteTime] = useState<number | null>(null);
     const [localBlackTime, setLocalBlackTime] = useState<number | null>(null);
 
@@ -59,9 +59,9 @@ export default function OnlinePlay() {
     const [app] = useState(() => new ChessApp());
 
     // ... refs and wrappers ...
-    const handleMouseMove = useRef<(e: MouseEvent) => void>(() => {});
-    const handleMouseUp = useRef<(e: MouseEvent) => void>(() => {});
-    const handleAnnotationDropRef = useRef<(e: MouseEvent) => void>(() => {});
+    const handleMouseMove = useRef<(e: MouseEvent) => void>(() => { });
+    const handleMouseUp = useRef<(e: MouseEvent) => void>(() => { });
+    const handleAnnotationDropRef = useRef<(e: MouseEvent) => void>(() => { });
 
     const moveWrapper = useCallback((e: MouseEvent) => handleMouseMove.current(e), []);
     const dropWrapper = useCallback((e: MouseEvent) => handleMouseUp.current(e), []);
@@ -111,7 +111,7 @@ export default function OnlinePlay() {
     );
 
     useEffect(() => {
-        const newSocket = io('http://192.168.1.2:3001');
+        const newSocket = io('http://localhost:3001');
         setSocket(newSocket);
 
         newSocket.on('opponent_joined', (data) => {
@@ -156,6 +156,8 @@ export default function OnlinePlay() {
                 if (res.success) {
                     setRoomId(res.roomId);
                     setPlayerColor(res.color);
+                    app.annotations.clearAll();
+                    app.interaction.clearPremoves();
                     if (res.pgn) {
                         app.engine.loadPgn(res.pgn);
                     } else {
@@ -185,7 +187,7 @@ export default function OnlinePlay() {
         const interval = setInterval(() => {
             const now = Date.now();
             let hostColor = serverPlayers.host?.playerId === playerId ? playerColor : (playerColor === 'w' ? 'b' : 'w');
-            
+
             let currentWt = hostColor === 'w' ? serverPlayers.host?.timeRemaining : serverPlayers.guest?.timeRemaining;
             let currentBt = hostColor === 'b' ? serverPlayers.host?.timeRemaining : serverPlayers.guest?.timeRemaining;
 
@@ -197,7 +199,7 @@ export default function OnlinePlay() {
                     currentBt = Math.max(0, (currentBt || 0) - elapsed);
                 }
             }
-            
+
             setLocalWhiteTime(currentWt);
             setLocalBlackTime(currentBt);
         }, 100);
@@ -208,7 +210,7 @@ export default function OnlinePlay() {
         if (!boardSnapshot) return { w: { score: 0, pieces: [] }, b: { score: 0, pieces: [] } };
         const PIECE_VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
         const STARTING_COUNT: Record<string, number> = { p: 8, n: 2, b: 2, r: 2, q: 1 };
-        
+
         const currentCount: Record<string, number> = {
             'w-p': 0, 'w-n': 0, 'w-b': 0, 'w-r': 0, 'w-q': 0,
             'b-p': 0, 'b-n': 0, 'b-b': 0, 'b-r': 0, 'b-q': 0
@@ -232,9 +234,9 @@ export default function OnlinePlay() {
         ['p', 'n', 'b', 'r', 'q'].forEach(type => {
             const missingW = Math.max(0, STARTING_COUNT[type] - currentCount[`w-${type}`]);
             const missingB = Math.max(0, STARTING_COUNT[type] - currentCount[`b-${type}`]);
-            
-            for(let i=0; i<missingW; i++) capturedByBlack.push(type);
-            for(let i=0; i<missingB; i++) capturedByWhite.push(type);
+
+            for (let i = 0; i < missingW; i++) capturedByBlack.push(type);
+            for (let i = 0; i < missingB; i++) capturedByWhite.push(type);
         });
 
         return {
@@ -246,6 +248,15 @@ export default function OnlinePlay() {
     useEffect(() => {
         setBoardSnapshot(app.getSnapshot());
         const handleUpdate = () => {
+            if (app.engine.getTurn() === playerColor) {
+                const pending = app.interaction.getPremoves();
+                if (pending.length > 0) {
+                    const p = app.engine.getPieceAt(pending[0].from);
+                    if (!p || p.color !== playerColor) {
+                        app.interaction.clearPremoves();
+                    }
+                }
+            }
             setBoardSnapshot(app.getSnapshot());
             if (!app.engine.canRedo()) setTimeout(scrollToRight, 50);
         };
@@ -266,7 +277,7 @@ export default function OnlinePlay() {
             app.events.on('PREMOVE_EXECUTED', handlePremoveExecuted),
         ];
         return () => unsubs.forEach((unsub) => unsub());
-    }, [app, emitMove]);
+    }, [app, emitMove, playerColor]);
 
     useEffect(() => {
         const handleGlobalClick = (e: MouseEvent) => {
@@ -585,13 +596,13 @@ export default function OnlinePlay() {
 
     const validDestinations = isSelectedTurn
         ? (app.interaction.getValidDestinations() || []).map((sq) => {
-              const coords = toCoords(sq);
-              return {
-                  x: coords!.x,
-                  y: coords!.y,
-                  containsPiece: !!app.engine.getPieceAt(sq),
-              };
-          })
+            const coords = toCoords(sq);
+            return {
+                x: coords!.x,
+                y: coords!.y,
+                containsPiece: !!app.engine.getPieceAt(sq),
+            };
+        })
         : [];
 
     const premoves = app.interaction.getPremoves().map((pm: any) => ({
@@ -647,15 +658,15 @@ export default function OnlinePlay() {
                         <CardDescription>Configura tu perfil y crea o únete a una sala</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-6">
-                        
+
                         {/* Perfil */}
                         <div className="flex flex-col gap-3 p-4 bg-secondary/30 rounded-lg border">
                             <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Tu Perfil</h3>
                             <div className="flex gap-4 items-center">
                                 <div className="flex gap-2">
                                     {avatars.map((av) => (
-                                        <img 
-                                            key={av} src={av} alt="Avatar" 
+                                        <img
+                                            key={av} src={av} alt="Avatar"
                                             className={`w-12 h-12 rounded-md cursor-pointer border-2 ${playerAvatar === av ? 'border-primary' : 'border-transparent opacity-50'}`}
                                             onClick={() => setPlayerAvatar(av)}
                                         />
@@ -674,12 +685,12 @@ export default function OnlinePlay() {
                         {/* Crear Sala */}
                         <div className="flex flex-col gap-4 p-4 bg-secondary/30 rounded-lg border">
                             <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Crear Sala</h3>
-                            
+
                             <div className="flex gap-2">
                                 {(['none', 'bullet', 'blitz', 'rapid'] as const).map(cat => (
-                                    <Button 
-                                        key={cat} 
-                                        variant={selectedTimeCategory === cat ? 'default' : 'outline'} 
+                                    <Button
+                                        key={cat}
+                                        variant={selectedTimeCategory === cat ? 'default' : 'outline'}
                                         onClick={() => setSelectedTimeCategory(cat)}
                                         className="flex-1 text-xs"
                                     >
@@ -693,8 +704,8 @@ export default function OnlinePlay() {
                                     {timeOptions[selectedTimeCategory as keyof typeof timeOptions].map(opt => {
                                         const isSelected = selectedTime?.initial === opt.i && selectedTime?.increment === opt.inc;
                                         return (
-                                            <Button 
-                                                key={opt.label} 
+                                            <Button
+                                                key={opt.label}
                                                 variant={isSelected ? 'default' : 'secondary'}
                                                 onClick={() => setSelectedTime({ initial: opt.i, increment: opt.inc })}
                                                 className="text-xs"
@@ -764,7 +775,7 @@ export default function OnlinePlay() {
     const { w: materialW, b: materialB } = getMaterialAdvantage();
 
     const localIsHost = serverPlayers?.host?.playerId === playerId;
-    
+
     // Determinar quién es quién para renderizar header (oponente) y footer (local)
     // El oponente siempre es el otro
     const opponent = localIsHost ? serverPlayers?.guest : serverPlayers?.host;
@@ -776,7 +787,7 @@ export default function OnlinePlay() {
     const localMat = localColor === 'w' ? materialW : materialB;
     const oppMat = opponentColor === 'w' ? materialW : materialB;
 
-    const renderPlayerInfo = (player: any, color: 'w'|'b', isOpponent: boolean) => {
+    const renderPlayerInfo = (player: any, color: 'w' | 'b', _isOpponent: boolean) => {
         if (!player) return null;
 
         const isTurn = serverTurn === color;
@@ -797,17 +808,304 @@ export default function OnlinePlay() {
                             <h1 className="font-semibold text-md">{player.name || 'Jugador'}</h1>
                             {!player.connected && <span className="text-xs text-red-500 font-bold animate-pulse">Reconectando...</span>}
                         </div>
-                        
-                        {/* Listado de piezas capturadas */}
+
+                        {/* Listado de piezas blancas capturadas - all variants */}
                         <div className="flex items-center gap-1 min-h-[20px]">
+                            {/* Pawn white */}
+                            <div style={{
+                                backgroundPosition: '-36rem -59.4rem',
+                                height: '1.7rem',
+                                width: '1.3rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Two pawns white */}
+                            <div style={{
+                                backgroundPosition: '-36rem -56.9rem',
+                                height: '1.7rem',
+                                width: '2rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Three pawns white */}
+                            <div style={{
+                                backgroundPosition: '-36rem -54.4rem',
+                                height: '1.7rem',
+                                width: '2.7rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Four pawns white */}
+                            <div style={{
+                                backgroundPosition: '-36rem -51.9rem',
+                                height: '1.7rem',
+                                width: '3.4rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Five pawns white */}
+                            <div style={{
+                                backgroundPosition: '-36rem -49.4rem',
+                                height: '1.7rem',
+                                width: '4.1rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Six pawns white */}
+                            <div style={{
+                                backgroundPosition: '-36rem -46.9rem',
+                                height: '1.7rem',
+                                width: '4.8rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Seven pawns white */}
+                            <div style={{
+                                backgroundPosition: '-36rem -44.4rem',
+                                height: '1.7rem',
+                                width: '5.5rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* All pawns white */}
+                            <div style={{
+                                backgroundPosition: '-36rem -41.9rem',
+                                height: '1.7rem',
+                                width: '6.2rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* One bishop white */}
+                            <div style={{
+                                backgroundPosition: '-42.7rem -44.3rem',
+                                height: '1.8rem',
+                                width: '1.5rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* All bishops white */}
+                            <div style={{
+                                backgroundPosition: '-42.7rem -41.7rem',
+                                height: '1.9rem',
+                                width: '2.3rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* One knight white */}
+                            <div style={{
+                                backgroundPosition: '-45.4rem -44.2rem',
+                                height: '1.9rem',
+                                width: '1.6rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* All knights white */}
+                            <div style={{
+                                backgroundPosition: '-45.4rem -41.7rem',
+                                height: '1.9rem',
+                                width: '2.3rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* One rook white */}
+                            <div style={{
+                                backgroundPosition: '-48rem -44.4rem',
+                                height: '1.7rem',
+                                width: '1.5rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* All rooks white */}
+                            <div style={{
+                                backgroundPosition: '-48rem -41.9rem',
+                                height: '1.7rem',
+                                width: '2.3rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Queen white */}
+                            <div style={{
+                                backgroundPosition: '-50.4rem -41.7rem',
+                                height: '1.9rem',
+                                width: '2.3rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                        </div>
+
+                        {/* Listado de piezas negras capturadas - all variants */}
+                        <div className="flex items-center gap-1 min-h-[20px]">
+                            {/* Pawn black */}
+                            <div style={{
+                                backgroundPosition: '0 -59.4rem',
+                                height: '1.7rem',
+                                width: '1.3rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Two pawns black */}
+                            <div style={{
+                                backgroundPosition: '0 -56.9rem',
+                                height: '1.7rem',
+                                width: '2rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Three pawns black */}
+                            <div style={{
+                                backgroundPosition: '0 -54.4rem',
+                                height: '1.7rem',
+                                width: '2.7rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Four pawns black */}
+                            <div style={{
+                                backgroundPosition: '0 -51.9rem',
+                                height: '1.7rem',
+                                width: '3.4rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Five pawns black */}
+                            <div style={{
+                                backgroundPosition: '0 -49.4rem',
+                                height: '1.7rem',
+                                width: '4.1rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Six pawns black */}
+                            <div style={{
+                                backgroundPosition: '0 -46.9rem',
+                                height: '1.7rem',
+                                width: '4.8rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Seven pawns black */}
+                            <div style={{
+                                backgroundPosition: '0 -44.4rem',
+                                height: '1.7rem',
+                                width: '5.5rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* All pawns black */}
+                            <div style={{
+                                backgroundPosition: '0 -41.9rem',
+                                height: '1.7rem',
+                                width: '6.2rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* One bishop black */}
+                            <div style={{
+                                backgroundPosition: '-6.7rem -44.3rem',
+                                height: '1.8rem',
+                                width: '1.5rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* All bishops black */}
+                            <div style={{
+                                backgroundPosition: '-6.7rem -41.7rem',
+                                height: '1.9rem',
+                                width: '2.3rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* One knight black */}
+                            <div style={{
+                                backgroundPosition: '-9.5rem -44.2rem',
+                                height: '1.9rem',
+                                width: '1.6rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* All knights black */}
+                            <div style={{
+                                backgroundPosition: '-9.5rem -41.7rem',
+                                height: '1.9rem',
+                                width: '2.3rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
+                            {/* One rook white */}
+                            <div style={{
+                                backgroundPosition: '-12rem -44.4rem',
+                                height: '1.7rem',
+                                width: '1.5rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* All rooks black */}
+                            <div style={{
+                                backgroundPosition: '-12rem -41.9rem',
+                                height: '1.7rem',
+                                width: '2.3rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+                            {/* Queen black */}
+                            <div style={{
+                                backgroundPosition: '-14.5rem -41.7rem',
+                                height: '1.9rem',
+                                width: '2.3rem',
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "68.3rem 61.1rem",
+                                display: "inline-block"
+                            }} className="bg-[url('/assets/images/captured-pieces.png')]" />
+
                             {material.pieces.map((p, idx) => (
-                                <img key={idx} src={`/assets/images/pieces/standard/${color === 'w' ? 'b' : 'w'}${p}.svg`} className="w-4 h-4 object-contain" alt={p}/>
+                                <img key={idx} src={`/assets/images/pieces/standard/${color === 'w' ? 'b' : 'w'}${p}.svg`} className="w-4 h-4 object-contain" alt={p} />
                             ))}
                             {material.score > 0 && <span className="text-xs text-muted-foreground ml-1">+{material.score}</span>}
                         </div>
                     </div>
                 </div>
-                
+
                 {timeControl && (
                     <div className={`flex items-center gap-3 px-4 rounded-md transition-colors ${isTurn ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-secondary-foreground opacity-50'}`}>
                         <Clock className="w-4 h-4" />
@@ -819,137 +1117,210 @@ export default function OnlinePlay() {
     };
 
     return (
-        <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
-            {/* Oponente (Header) */}
-            <header className="flex-shrink-0 h-[80px] p-4 flex items-center justify-center max-w-4xl w-full mx-auto">
-                {renderPlayerInfo(opponent, opponentColor, true)}
-            </header>
-
-            {/* Tablero (Centro) */}
-            <main className="flex-1 min-h-0 w-full flex items-center justify-center p-0 relative">
-                <div
-                    className="board-height board-width contain-layout relative"
-                    onContextMenu={(e) => e.preventDefault()}
-                    onMouseDown={handleBoardMouseDown}
-                >
-                    <div
-                        className="inset-0 absolute bg-cover bg-center select-none rounded-sm overflow-hidden"
-                        style={{ backgroundImage: `url(${theme.board.backgroundImage})` }}
-                        ref={chessboardRef}
-                    >
-                        <BoardHighlights
-                            selectedSquare={toCoords(selectedSquareAlg)}
-                            lastMove={
-                                app.engine.getLastMove()
-                                    ? {
-                                          from: toCoords(app.engine.getLastMove()!.from)!,
-                                          to: toCoords(app.engine.getLastMove()!.to)!,
-                                      }
-                                    : null
-                            }
-                            validDestinations={validDestinations}
-                            hoverSquare={toCoords(hoverSquare)}
-                            premoves={premoves}
-                            flipped={playerColor === 'b'}
-                        />
-
-                        <BoardAnnotations
-                            arrows={mappedArrows}
-                            highlights={mappedHighlights}
-                            flipped={playerColor === 'b'}
-                        />
-
-                        {pendingPromotion && (
-                            <>
-                                <div
-                                    className="absolute inset-0 z-40 pointer-events-auto"
-                                    onClick={() => setPendingPromotion(null)}
-                                />
-                                <div
-                                    className={`absolute z-50 flex ${pendingPromotion.color === 'w' ? 'flex-col' : 'flex-col-reverse'} bg-white dark:bg-black shadow-2xl rounded-md overflow-hidden pointer-events-auto`}
-                                    style={{
-                                        left: `${pendingPromotion.dropX * 12.5}%`,
-                                        ...(pendingPromotion.color === 'w'
-                                            ? { top: `${pendingPromotion.dropY * 12.5}%` }
-                                            : { bottom: `${(7 - pendingPromotion.dropY) * 12.5}%` }),
-                                        width: '12.5%',
-                                    }}
-                                >
-                                    {(['q', 'n', 'r', 'b'] as PieceSymbol[]).map((pieceType) => (
-                                        <div
-                                            key={pieceType}
-                                            className="w-full aspect-square hover:bg-muted/50 cursor-pointer flex items-center justify-center transition-colors"
-                                            onClick={() => handlePromotionSelect(pieceType)}
-                                        >
-                                            <img
-                                                src={
-                                                    theme.pieces[pieceType as keyof typeof theme.pieces][
-                                                        pendingPromotion.color
-                                                    ]
-                                                }
-                                                alt={pieceType}
-                                                className="w-[85%] h-[85%] object-contain drop-shadow-md"
-                                            />
-                                        </div>
-                                    ))}
+        <div className='flex bg-muted'>
+            <div className="h-screen w-screen flex flex-col overflow-hidden">
+                {/* Mobile History (Horizontal) */}
+                <div className="lg:hidden block w-full">
+                    <ScrollArea className="w-full whitespace-nowrap rounded-md border bg-secondary/20" ref={scrollRef}>
+                        <div className="flex w-max space-x-2 p-2 items-center h-12">
+                            {app.engine.getGameTree().getMainLine().length > 1 ? app.engine.getGameTree().getMainLine().slice(1).map((node: any, i: number) => (
+                                <div key={node.id} className="inline-flex items-center gap-1">
+                                    {i % 2 === 0 && <span className="text-muted-foreground text-xs font-mono ml-2">{i / 2 + 1}.</span>}
+                                    <Button
+                                        variant={app.engine.getGameTree().getCurrentNode().id === node.id ? 'default' : 'secondary'}
+                                        size="sm"
+                                        className="h-7 text-xs px-2"
+                                        onClick={() => { app.engine.goToMove(node.id); setBoardSnapshot(app.getSnapshot()); }}
+                                    >
+                                        {node.move?.san}
+                                    </Button>
                                 </div>
-                            </>
-                        )}
+                            )) : (
+                                <div className="text-sm text-muted-foreground px-4">No moves played yet...</div>
+                            )}
+                        </div>
+                        <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+                </div>
+                {/* Oponente (Header) */}
+                <header className="shrink-0 h-[80px] p-4 flex items-center justify-center max-w-4xl w-full mx-auto">
+                    {renderPlayerInfo(opponent, opponentColor, true)}
+                </header>
 
-                        {boardSnapshot &&
-                            boardSnapshot.board.flatMap((row, rowIndex) =>
-                                row.map((square, colIndex) => {
-                                    const renderRow = playerColor === 'b' ? 7 - rowIndex : rowIndex;
-                                    const renderCol = playerColor === 'b' ? 7 - colIndex : colIndex;
+                {/* Tablero (Centro) */}
+                <main className="flex-1 min-h-0 w-full flex items-center justify-center p-0 relative">
+                    <div
+                        className="board-height board-width contain-layout relative"
+                        onContextMenu={(e) => e.preventDefault()}
+                        onMouseDown={handleBoardMouseDown}
+                    >
+                        <div
+                            className="inset-0 absolute bg-cover bg-center select-none rounded-sm overflow-hidden"
+                            style={{ backgroundImage: `url(${theme.board.backgroundImage})` }}
+                            ref={chessboardRef}
+                        >
+                            <BoardHighlights
+                                selectedSquare={toCoords(selectedSquareAlg)}
+                                lastMove={
+                                    app.engine.getLastMove()
+                                        ? {
+                                            from: toCoords(app.engine.getLastMove()!.from)!,
+                                            to: toCoords(app.engine.getLastMove()!.to)!,
+                                        }
+                                        : null
+                                }
+                                validDestinations={validDestinations}
+                                hoverSquare={toCoords(hoverSquare)}
+                                premoves={premoves}
+                                flipped={playerColor === 'b'}
+                            />
 
-                                    return (
-                                        <div
-                                            key={`sq-int-${square.algebraic}`}
-                                            className="absolute w-[12.5%] h-[12.5%] flex items-center justify-center cursor-pointer pointer-events-auto z-25"
-                                            style={{
-                                                top: `${renderRow * 12.5}%`,
-                                                left: `${renderCol * 12.5}%`,
-                                            }}
-                                            onMouseDown={(e) => {
-                                                if (e.button === 0) {
-                                                    safeHandleSquareClick(square.algebraic);
-                                                    if (square.piece) {
-                                                        const isHint = square.isValidDestination && isSelectedTurn;
-                                                        if (!isHint) grabPiece(e, square.algebraic);
-                                                    }
-                                                }
-                                            }}
-                                        >
-                                            {square.piece && (
+                            <BoardAnnotations
+                                arrows={mappedArrows}
+                                highlights={mappedHighlights}
+                                flipped={playerColor === 'b'}
+                            />
+
+                            {pendingPromotion && (
+                                <>
+                                    <div
+                                        className="absolute inset-0 z-40 pointer-events-auto"
+                                        onClick={() => setPendingPromotion(null)}
+                                    />
+                                    <div
+                                        className={`absolute z-50 flex ${pendingPromotion.color === 'w' ? 'flex-col' : 'flex-col-reverse'} bg-white dark:bg-black shadow-2xl rounded-md overflow-hidden pointer-events-auto`}
+                                        style={{
+                                            left: `${pendingPromotion.dropX * 12.5}%`,
+                                            ...(pendingPromotion.color === 'w'
+                                                ? { top: `${pendingPromotion.dropY * 12.5}%` }
+                                                : { bottom: `${(7 - pendingPromotion.dropY) * 12.5}%` }),
+                                            width: '12.5%',
+                                        }}
+                                    >
+                                        {(['q', 'n', 'r', 'b'] as PieceSymbol[]).map((pieceType) => (
+                                            <div
+                                                key={pieceType}
+                                                className="w-full aspect-square hover:bg-muted/50 cursor-pointer flex items-center justify-center transition-colors"
+                                                onClick={() => handlePromotionSelect(pieceType)}
+                                            >
                                                 <img
                                                     src={
-                                                        theme.pieces[
-                                                            square.piece.type as keyof typeof theme.pieces
-                                                        ][square.piece.color]
+                                                        theme.pieces[pieceType as keyof typeof theme.pieces][
+                                                        pendingPromotion.color
+                                                        ]
                                                     }
-                                                    alt={square.piece.type}
-                                                    className={`w-full h-full object-contain pointer-events-none relative`}
-                                                    data-square={square.algebraic}
+                                                    alt={pieceType}
+                                                    className="w-[85%] h-[85%] object-contain drop-shadow-md"
                                                 />
-                                            )}
-                                        </div>
-                                    );
-                                })
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
                             )}
-                    </div>
-                    <Coordinates
-                        className="pointer-events-none z-30 relative"
-                        light={coordinateColors.light}
-                        dark={coordinateColors.dark}
-                        flipped={playerColor === 'b'}
-                    />
-                </div>
-            </main>
 
-            {/* Local Player (Footer) */}
-            <footer className="flex-shrink-0 h-[80px] p-4 flex items-center justify-center max-w-4xl w-full mx-auto">
-                {renderPlayerInfo(local, localColor, false)}
-            </footer>
+                            {boardSnapshot &&
+                                boardSnapshot.board.flatMap((row, rowIndex) =>
+                                    row.map((square, colIndex) => {
+                                        const renderRow = playerColor === 'b' ? 7 - rowIndex : rowIndex;
+                                        const renderCol = playerColor === 'b' ? 7 - colIndex : colIndex;
+
+                                        return (
+                                            <div
+                                                key={`sq-int-${square.algebraic}`}
+                                                className="absolute w-[12.5%] h-[12.5%] flex items-center justify-center cursor-pointer pointer-events-auto z-25"
+                                                style={{
+                                                    top: `${renderRow * 12.5}%`,
+                                                    left: `${renderCol * 12.5}%`,
+                                                }}
+                                                onMouseDown={(e) => {
+                                                    if (e.button === 0) {
+                                                        safeHandleSquareClick(square.algebraic);
+                                                        if (square.piece) {
+                                                            const isHint = square.isValidDestination && isSelectedTurn;
+                                                            if (!isHint) grabPiece(e, square.algebraic);
+                                                        }
+                                                    }
+                                                }}
+                                            >
+                                                {square.piece && (
+                                                    <img
+                                                        src={
+                                                            theme.pieces[
+                                                            square.piece.type as keyof typeof theme.pieces
+                                                            ][square.piece.color]
+                                                        }
+                                                        alt={square.piece.type}
+                                                        className={`w-full h-full object-contain pointer-events-none relative`}
+                                                        data-square={square.algebraic}
+                                                    />
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                        </div>
+                        <Coordinates
+                            className="pointer-events-none z-30 relative"
+                            light={coordinateColors.light}
+                            dark={coordinateColors.dark}
+                            flipped={playerColor === 'b'}
+                        />
+                    </div>
+                </main>
+
+                {/* Local Player (Footer) */}
+                <footer className="shrink-0 h-[80px] p-4 flex items-center justify-center max-w-4xl w-full mx-auto">
+                    {renderPlayerInfo(local, localColor, false)}
+                </footer>
+            </div>
+            <Card className="hidden lg:flex flex-col w-[400px] h-screen">
+                <CardHeader>
+                    <CardTitle>History</CardTitle>
+                </CardHeader>
+                <CardContent className="overflow-y-auto flex-1 p-0">
+                    <div className="flex flex-col text-sm">
+                        {app.engine.getGameTree().getMainLine().length > 1 ? app.engine.getGameTree().getMainLine().slice(1).reduce((acc: any, node: any, i: number) => {
+                            if (i % 2 === 0) acc.push({ turn: i / 2 + 1, white: node, black: null });
+                            else acc[acc.length - 1].black = node;
+                            return acc;
+                        }, [] as any[]).map((pair: any) => (
+                            <div key={pair.turn} className="flex items-center px-4 py-1.5 hover:bg-muted/30 group border-b border-border/50">
+                                <div className="w-8 text-muted-foreground font-mono select-none flex items-center">{pair.turn}.</div>
+                                <div className="grid w-full grid-cols-2 gap-2">
+                                    <Button
+                                        variant={app.engine.getGameTree().getCurrentNode().id === pair.white.id ? 'default' : 'secondary'}
+                                        size="sm"
+                                        onClick={() => { app.engine.goToMove(pair.white.id); setBoardSnapshot(app.getSnapshot()); }}
+                                        className={"w-fit"}
+                                    >
+                                        {pair.white.move?.san}
+                                    </Button>
+                                    {pair.black && (
+                                        <Button
+                                            variant={app.engine.getGameTree().getCurrentNode().id === pair.black.id ? 'default' : 'secondary'}
+                                            size="sm"
+                                            onClick={() => { app.engine.goToMove(pair.black.id); setBoardSnapshot(app.getSnapshot()); }}
+                                            className={"w-fit"}
+                                        >
+                                            {pair.black.move?.san}
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        )) : <div className="text-center py-4 text-muted-foreground">No moves yet</div>}
+                    </div>
+                </CardContent>
+                <CardFooter>
+                    <div className="flex gap-2 w-full justify-center md:justify-start">
+                        <Button disabled={!canUndo} onClick={() => { app.engine.undo(); setBoardSnapshot(app.getSnapshot()); }}>
+                            <ArrowLeft className="h-5 w-5" />
+                        </Button>
+                        <Button disabled={!canRedo} onClick={() => { app.engine.redo(); setBoardSnapshot(app.getSnapshot()); }}>
+                            <ArrowRight className="h-5 w-5" />
+                        </Button>
+                    </div>
+                </CardFooter>
+            </Card>
         </div>
     );
 }
