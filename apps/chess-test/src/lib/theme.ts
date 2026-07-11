@@ -20,8 +20,10 @@ export const theme = {
         r: { b: "/assets/images/br.png", w: "/assets/images/wr.png" }
     },
     sounds: {
-        move: "/assets/sounds/move-self.mp3",
         capture: "/assets/sounds/capture.mp3",
-        check: "/assets/sounds/move-check.mp3",
+        castle: "/assets/sounds/castle.mp3",
+        moveCheck: "/assets/sounds/move-check.mp3",
+        moveSelf: "/assets/sounds/move-self.mp3",
+        promote: "/assets/sounds/promote.mp3",
     }
 };

@@ -32,23 +32,6 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
 
     const activePiece = useRef<HTMLElement | null>(null);
     const chessboardRef = useRef<HTMLDivElement>(null);
-    const mainRef = useRef<HTMLDivElement>(null);
-
-    const [boardSize, setBoardSize] = useState<number | null>(null);
-
-    useEffect(() => {
-        if (!mainRef.current) return;
-        const observer = new ResizeObserver((entries) => {
-            for (let entry of entries) {
-                const { width, height } = entry.contentRect;
-                const minDimension = Math.min(width, height);
-                const roundedSize = Math.floor(minDimension / 8) * 8;
-                setBoardSize(roundedSize);
-            }
-        });
-        observer.observe(mainRef.current);
-        return () => observer.disconnect();
-    }, []);
 
     const originSquare = useRef<string | null>(null);
     const originalStyle = useRef<{ left: string; top: string; zIndex: string } | null>(null);
@@ -251,6 +234,7 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
     const handleBoardMouseDown = (e: React.MouseEvent) => {
         if (e.button === 0) {
             app.annotations.clearAll();
+            // app.interaction.clearPremoves(); // Se limpian los premoves en caso de arrepentimiento
             setBoardSnapshot(app.getSnapshot());
         } else if (e.button === 2) {
             const chessboard = chessboardRef.current;
@@ -408,7 +392,6 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
     return (
         <div className="w-full h-full flex items-center justify-center" style={{ containerType: 'size' }}>
             <div
-                ref={mainRef}
                 className="board-square contain-layout relative"
                 onContextMenu={(e) => e.preventDefault()}
                 onMouseDown={handleBoardMouseDown}

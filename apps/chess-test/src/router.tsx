@@ -1,7 +1,7 @@
 import { createBrowserRouter, type RouteObject } from "react-router";
-import Chess from "./pages/Chess";
-import OnlineLobby from "./pages/online/index";
-import OnlineMatch from "./pages/online/[id]/index";
+import Chess from "./pages";
+import OnlineLobby from "./pages/online";
+import OnlineMatch from "./pages/online/[id]";
 
 const routes: RouteObject[] = [
     {
