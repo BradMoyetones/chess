@@ -14,6 +14,8 @@ import { useParams, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { CapturedMaterial } from '../components/board/captured-material';
+import { cn } from '@/lib/utils';
+
 const toCoords = (algebraic: string | null) => {
     if (!algebraic) return null;
     const x = algebraic.charCodeAt(0) - 'a'.charCodeAt(0);
@@ -68,7 +70,26 @@ export default function OnlinePlay() {
     const annotationDropWrapper = useCallback((e: MouseEvent) => handleAnnotationDropRef.current(e), []);
 
     const activePiece = useRef<HTMLElement | null>(null);
-    const chessboardRef = useRef<HTMLDivElement | null>(null);
+    const chessboardRef = useRef<HTMLDivElement>(null);
+    const mainRef = useRef<HTMLDivElement>(null);
+
+    const [boardSize, setBoardSize] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!mainRef.current) return;
+        const observer = new ResizeObserver((entries) => {
+            for (let entry of entries) {
+                const { width, height } = entry.contentRect;
+                // Mismo cálculo que el CSS: round(down, min(width, height), 8px)
+                const minDimension = Math.min(width, height);
+                const roundedSize = Math.floor(minDimension / 8) * 8;
+                setBoardSize(roundedSize);
+            }
+        });
+        observer.observe(mainRef.current);
+        return () => observer.disconnect();
+    }, [mainRef.current]);
+
     const originSquare = useRef<string | null>(null);
     const originalStyle = useRef<{ left: string; top: string; zIndex: string } | null>(null);
     const annotationStartSquare = useRef<string | null>(null);
@@ -84,11 +105,16 @@ export default function OnlinePlay() {
     const [hoverSquare, setHoverSquare] = useState<string | null>(null);
     const [boardSnapshot, setBoardSnapshot] = useState<BoardSnapshot | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const scrollRefPc = useRef<HTMLDivElement>(null);
 
     const scrollToRight = useCallback(() => {
         if (scrollRef.current) {
-            const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+            const viewport = scrollRef.current;
             if (viewport) viewport.scrollTo({ left: viewport.scrollWidth, behavior: 'smooth' });
+        }
+        if (scrollRefPc.current) {
+            const viewport = scrollRefPc.current;
+            if (viewport) viewport.scrollTo({ top: viewport.scrollHeight * 100, behavior: 'smooth' });
         }
     }, []);
 
@@ -803,7 +829,7 @@ export default function OnlinePlay() {
                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-black" title="Desconectado" />
                         )}
                     </div>
-                    <div className="flex flex-col justify-center">
+                    <div className="flex flex-col justify-center leading-tight">
                         <div className="flex items-center gap-2">
                             <h1 className="font-semibold text-md">{player.name || 'Jugador'}</h1>
                             {!player.connected && <span className="text-xs text-red-500 font-bold animate-pulse">Reconectando...</span>}
@@ -815,7 +841,10 @@ export default function OnlinePlay() {
                 </div>
 
                 {timeControl && (
-                    <div className={`flex items-center gap-3 px-4 rounded-md transition-colors ${isTurn ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-secondary-foreground opacity-50'}`}>
+                    <div className={cn("flex items-center gap-3 px-4 rounded-md transition-colors", {
+                        'bg-primary text-primary-foreground shadow-md': isTurn,
+                        'bg-background text-secondary-foreground opacity-50': !isTurn
+                    })}>
                         <Clock className="w-4 h-4" />
                         <div className="font-bold text-lg font-mono">{formatTime(timeRemaining)}</div>
                     </div>
@@ -829,7 +858,7 @@ export default function OnlinePlay() {
             <div className="h-screen w-screen flex flex-col overflow-hidden">
                 {/* Mobile History (Horizontal) */}
                 <div className="lg:hidden block w-full">
-                    <ScrollArea className="w-full whitespace-nowrap rounded-md border bg-secondary/20" ref={scrollRef}>
+                    <div className="w-full  rounded-md border bg-secondary/20 scrollbar-none overflow-x-auto scroll-fade-x" ref={scrollRef}>
                         <div className="flex w-max space-x-2 p-2 items-center h-12">
                             {app.engine.getGameTree().getMainLine().length > 1 ? app.engine.getGameTree().getMainLine().slice(1).map((node: any, i: number) => (
                                 <div key={node.id} className="inline-flex items-center gap-1">
@@ -847,11 +876,13 @@ export default function OnlinePlay() {
                                 <div className="text-sm text-muted-foreground px-4">No moves played yet...</div>
                             )}
                         </div>
-                        <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
+                    </div>
                 </div>
                 {/* Oponente (Header) */}
-                <header className="shrink-0 h-[80px] p-4 flex items-center justify-center max-w-4xl w-full mx-auto">
+                <header
+                    className="shrink-0 lg:px-0 px-2 py-3 flex items-center justify-center w-full mx-auto transition-all"
+                    style={{ maxWidth: boardSize ? `${boardSize}px` : '100%' }}
+                >
                     {renderPlayerInfo(opponent, opponentColor, true)}
                 </header>
 
@@ -859,127 +890,131 @@ export default function OnlinePlay() {
                 <main className="flex-1 min-h-0 w-full relative">
                     <div className="w-full h-full flex items-center justify-center" style={{ containerType: 'size' }}>
                         <div
+                            ref={mainRef}
                             className="board-square contain-layout relative"
-                        onContextMenu={(e) => e.preventDefault()}
-                        onMouseDown={handleBoardMouseDown}
-                    >
-                        <div
-                            className="inset-0 absolute bg-cover bg-center select-none rounded-sm overflow-hidden"
-                            style={{ backgroundImage: `url(${theme.board.backgroundImage})` }}
-                            ref={chessboardRef}
+                            onContextMenu={(e) => e.preventDefault()}
+                            onMouseDown={handleBoardMouseDown}
                         >
-                            <BoardHighlights
-                                selectedSquare={toCoords(selectedSquareAlg)}
-                                lastMove={
-                                    app.engine.getLastMove()
-                                        ? {
-                                            from: toCoords(app.engine.getLastMove()!.from)!,
-                                            to: toCoords(app.engine.getLastMove()!.to)!,
-                                        }
-                                        : null
-                                }
-                                validDestinations={validDestinations}
-                                hoverSquare={toCoords(hoverSquare)}
-                                premoves={premoves}
-                                flipped={playerColor === 'b'}
-                            />
+                            <div
+                                className="inset-0 absolute bg-cover bg-center select-none rounded-sm overflow-hidden"
+                                style={{ backgroundImage: `url(${theme.board.backgroundImage})` }}
+                                ref={chessboardRef}
+                            >
+                                <BoardHighlights
+                                    selectedSquare={toCoords(selectedSquareAlg)}
+                                    lastMove={
+                                        app.engine.getLastMove()
+                                            ? {
+                                                from: toCoords(app.engine.getLastMove()!.from)!,
+                                                to: toCoords(app.engine.getLastMove()!.to)!,
+                                            }
+                                            : null
+                                    }
+                                    validDestinations={validDestinations}
+                                    hoverSquare={toCoords(hoverSquare)}
+                                    premoves={premoves}
+                                    flipped={playerColor === 'b'}
+                                />
 
-                            <BoardAnnotations
-                                arrows={mappedArrows}
-                                highlights={mappedHighlights}
-                                flipped={playerColor === 'b'}
-                            />
+                                <BoardAnnotations
+                                    arrows={mappedArrows}
+                                    highlights={mappedHighlights}
+                                    flipped={playerColor === 'b'}
+                                />
 
-                            {pendingPromotion && (
-                                <>
-                                    <div
-                                        className="absolute inset-0 z-40 pointer-events-auto"
-                                        onClick={() => setPendingPromotion(null)}
-                                    />
-                                    <div
-                                        className={`absolute z-50 flex ${pendingPromotion.color === 'w' ? 'flex-col' : 'flex-col-reverse'} bg-white dark:bg-black shadow-2xl rounded-md overflow-hidden pointer-events-auto`}
-                                        style={{
-                                            left: `${pendingPromotion.dropX * 12.5}%`,
-                                            ...(pendingPromotion.color === 'w'
-                                                ? { top: `${pendingPromotion.dropY * 12.5}%` }
-                                                : { bottom: `${(7 - pendingPromotion.dropY) * 12.5}%` }),
-                                            width: '12.5%',
-                                        }}
-                                    >
-                                        {(['q', 'n', 'r', 'b'] as PieceSymbol[]).map((pieceType) => (
-                                            <div
-                                                key={pieceType}
-                                                className="w-full aspect-square hover:bg-muted/50 cursor-pointer flex items-center justify-center transition-colors"
-                                                onClick={() => handlePromotionSelect(pieceType)}
-                                            >
-                                                <img
-                                                    src={
-                                                        theme.pieces[pieceType as keyof typeof theme.pieces][
-                                                        pendingPromotion.color
-                                                        ]
-                                                    }
-                                                    alt={pieceType}
-                                                    className="w-[85%] h-[85%] object-contain drop-shadow-md"
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-
-                            {boardSnapshot &&
-                                boardSnapshot.board.flatMap((row, rowIndex) =>
-                                    row.map((square, colIndex) => {
-                                        const renderRow = playerColor === 'b' ? 7 - rowIndex : rowIndex;
-                                        const renderCol = playerColor === 'b' ? 7 - colIndex : colIndex;
-
-                                        return (
-                                            <div
-                                                key={`sq-int-${square.algebraic}`}
-                                                className="absolute w-[12.5%] h-[12.5%] flex items-center justify-center cursor-pointer pointer-events-auto z-25"
-                                                style={{
-                                                    top: `${renderRow * 12.5}%`,
-                                                    left: `${renderCol * 12.5}%`,
-                                                }}
-                                                onMouseDown={(e) => {
-                                                    if (e.button === 0) {
-                                                        safeHandleSquareClick(square.algebraic);
-                                                        if (square.piece) {
-                                                            const isHint = square.isValidDestination && isSelectedTurn;
-                                                            if (!isHint) grabPiece(e, square.algebraic);
-                                                        }
-                                                    }
-                                                }}
-                                            >
-                                                {square.piece && (
+                                {pendingPromotion && (
+                                    <>
+                                        <div
+                                            className="absolute inset-0 z-40 pointer-events-auto"
+                                            onClick={() => setPendingPromotion(null)}
+                                        />
+                                        <div
+                                            className={`absolute z-50 flex ${pendingPromotion.color === 'w' ? 'flex-col' : 'flex-col-reverse'} bg-white dark:bg-black shadow-2xl rounded-md overflow-hidden pointer-events-auto`}
+                                            style={{
+                                                left: `${pendingPromotion.dropX * 12.5}%`,
+                                                ...(pendingPromotion.color === 'w'
+                                                    ? { top: `${pendingPromotion.dropY * 12.5}%` }
+                                                    : { bottom: `${(7 - pendingPromotion.dropY) * 12.5}%` }),
+                                                width: '12.5%',
+                                            }}
+                                        >
+                                            {(['q', 'n', 'r', 'b'] as PieceSymbol[]).map((pieceType) => (
+                                                <div
+                                                    key={pieceType}
+                                                    className="w-full aspect-square hover:bg-muted/50 cursor-pointer flex items-center justify-center transition-colors"
+                                                    onClick={() => handlePromotionSelect(pieceType)}
+                                                >
                                                     <img
                                                         src={
-                                                            theme.pieces[
-                                                            square.piece.type as keyof typeof theme.pieces
-                                                            ][square.piece.color]
+                                                            theme.pieces[pieceType as keyof typeof theme.pieces][
+                                                            pendingPromotion.color
+                                                            ]
                                                         }
-                                                        alt={square.piece.type}
-                                                        className={`w-full h-full object-contain pointer-events-none relative`}
-                                                        data-square={square.algebraic}
+                                                        alt={pieceType}
+                                                        className="w-[85%] h-[85%] object-contain drop-shadow-md"
                                                     />
-                                                )}
-                                            </div>
-                                        );
-                                    })
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
                                 )}
+
+                                {boardSnapshot &&
+                                    boardSnapshot.board.flatMap((row, rowIndex) =>
+                                        row.map((square, colIndex) => {
+                                            const renderRow = playerColor === 'b' ? 7 - rowIndex : rowIndex;
+                                            const renderCol = playerColor === 'b' ? 7 - colIndex : colIndex;
+
+                                            return (
+                                                <div
+                                                    key={`sq-int-${square.algebraic}`}
+                                                    className="absolute w-[12.5%] h-[12.5%] flex items-center justify-center cursor-pointer pointer-events-auto z-25"
+                                                    style={{
+                                                        top: `${renderRow * 12.5}%`,
+                                                        left: `${renderCol * 12.5}%`,
+                                                    }}
+                                                    onMouseDown={(e) => {
+                                                        if (e.button === 0) {
+                                                            safeHandleSquareClick(square.algebraic);
+                                                            if (square.piece) {
+                                                                const isHint = square.isValidDestination && isSelectedTurn;
+                                                                if (!isHint) grabPiece(e, square.algebraic);
+                                                            }
+                                                        }
+                                                    }}
+                                                >
+                                                    {square.piece && (
+                                                        <img
+                                                            src={
+                                                                theme.pieces[
+                                                                square.piece.type as keyof typeof theme.pieces
+                                                                ][square.piece.color]
+                                                            }
+                                                            alt={square.piece.type}
+                                                            className={`w-full h-full object-contain pointer-events-none relative`}
+                                                            data-square={square.algebraic}
+                                                        />
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                            </div>
+                            <Coordinates
+                                className="pointer-events-none z-30 relative"
+                                light={coordinateColors.light}
+                                dark={coordinateColors.dark}
+                                flipped={playerColor === 'b'}
+                            />
                         </div>
-                        <Coordinates
-                            className="pointer-events-none z-30 relative"
-                            light={coordinateColors.light}
-                            dark={coordinateColors.dark}
-                            flipped={playerColor === 'b'}
-                        />
-                    </div>
                     </div>
                 </main>
 
                 {/* Local Player (Footer) */}
-                <footer className="shrink-0 h-[80px] p-4 flex items-center justify-center max-w-4xl w-full mx-auto">
+                <footer
+                    className="shrink-0 lg:px-0 px-2 py-3 flex items-center justify-center w-full mx-auto transition-all"
+                    style={{ maxWidth: boardSize ? `${boardSize}px` : '100%' }}
+                >
                     {renderPlayerInfo(local, localColor, false)}
                 </footer>
             </div>
@@ -987,7 +1022,7 @@ export default function OnlinePlay() {
                 <CardHeader>
                     <CardTitle>History</CardTitle>
                 </CardHeader>
-                <CardContent className="overflow-y-auto flex-1 p-0">
+                <CardContent ref={scrollRefPc} className="overflow-y-auto flex-1 p-0 scroll-fade-y scrollbar-none">
                     <div className="flex flex-col text-sm">
                         {app.engine.getGameTree().getMainLine().length > 1 ? app.engine.getGameTree().getMainLine().slice(1).reduce((acc: any, node: any, i: number) => {
                             if (i % 2 === 0) acc.push({ turn: i / 2 + 1, white: node, black: null });
