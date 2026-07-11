@@ -30,6 +30,22 @@ export default function OnlinePlay() {
     const [inputRoomId, setInputRoomId] = useState<string>('');
     const [playerColor, setPlayerColor] = useState<'w' | 'b'>('w');
 
+    // Perfiles
+    const [playerName, setPlayerName] = useState(() => localStorage.getItem('chess_player_name') || '');
+    const [playerAvatar, setPlayerAvatar] = useState(() => localStorage.getItem('chess_player_avatar') || '/assets/images/players/player-1.webp');
+    const [selectedTimeCategory, setSelectedTimeCategory] = useState<'none'|'bullet'|'blitz'|'rapid'>('none');
+    const [selectedTime, setSelectedTime] = useState<{initial: number, increment: number} | null>(null);
+    const [selectedColor, setSelectedColor] = useState<'w'|'b'|'random'>('random');
+
+    // Server Sync
+    const [serverPlayers, setServerPlayers] = useState<{host: any, guest: any} | null>(null);
+    const [serverTurn, setServerTurn] = useState<'w' | 'b'>('w');
+    const [lastMoveTime, setLastMoveTime] = useState<number | null>(null);
+    const [timeControl, setTimeControl] = useState<{initial: number, increment: number} | null>(null);
+    
+    const [localWhiteTime, setLocalWhiteTime] = useState<number | null>(null);
+    const [localBlackTime, setLocalBlackTime] = useState<number | null>(null);
+
     // Generar un ID único persistente para reconexiones
     const [playerId] = useState(() => {
         let id = localStorage.getItem('chess_player_id');
@@ -92,11 +108,17 @@ export default function OnlinePlay() {
         const newSocket = io('http://192.168.1.2:3001');
         setSocket(newSocket);
 
-        newSocket.on('opponent_joined', () => {
+        newSocket.on('opponent_joined', (data) => {
+            if (data?.players) setServerPlayers(data.players);
+            if (data?.lastMoveTime) setLastMoveTime(data.lastMoveTime);
             setStatus('playing');
         });
 
-        newSocket.on('move_received', ({ moveData }) => {
+        newSocket.on('move_received', ({ moveData, players, turn, lastMoveTime }) => {
+            if (players) setServerPlayers(players);
+            if (turn) setServerTurn(turn);
+            if (lastMoveTime) setLastMoveTime(lastMoveTime);
+
             const mainLine = app.engine.getGameTree().getMainLine();
             if (mainLine.length > 0) {
                 app.engine.goToMove(mainLine[mainLine.length - 1].id);
@@ -106,9 +128,15 @@ export default function OnlinePlay() {
             setBoardSnapshot(app.getSnapshot());
         });
 
-        newSocket.on('opponent_disconnected', () => {
-            setStatus('waiting');
-            toast.info('El oponente se ha desconectado. Esperando reconexión...');
+        newSocket.on('opponent_disconnected', ({ hostConnected, guestConnected }) => {
+            setServerPlayers((prev: any) => {
+                if (!prev) return prev;
+                return {
+                    host: { ...prev.host, connected: hostConnected },
+                    guest: prev.guest ? { ...prev.guest, connected: guestConnected } : null
+                };
+            });
+            toast.info('Un jugador se ha desconectado. Esperando reconexión...');
         });
 
         newSocket.on('room_closed', () => {
@@ -119,10 +147,15 @@ export default function OnlinePlay() {
         });
 
         if (urlRoomId) {
-            newSocket.emit('join_room', { roomId: urlRoomId, playerId }, (res: any) => {
+            newSocket.emit('join_room', { roomId: urlRoomId, playerId, playerName, playerAvatar }, (res: any) => {
                 if (res.success) {
                     setRoomId(res.roomId);
                     setPlayerColor(res.color);
+                    if (res.players) setServerPlayers(res.players);
+                    if (res.turn) setServerTurn(res.turn);
+                    if (res.lastMoveTime) setLastMoveTime(res.lastMoveTime);
+                    if (res.timeControl) setTimeControl(res.timeControl);
+
                     if (res.pgn) {
                         app.engine.loadPgn(res.pgn);
                     } else {
@@ -140,7 +173,71 @@ export default function OnlinePlay() {
         return () => {
             newSocket.close();
         };
-    }, [app, urlRoomId, navigate, playerId]);
+    }, [app, urlRoomId, navigate, playerId, playerName, playerAvatar]);
+
+    useEffect(() => {
+        if (!timeControl || status !== 'playing' || !serverPlayers) return;
+
+        const interval = setInterval(() => {
+            const now = Date.now();
+            let hostColor = serverPlayers.host?.playerId === playerId ? playerColor : (playerColor === 'w' ? 'b' : 'w');
+            
+            let currentWt = hostColor === 'w' ? serverPlayers.host?.timeRemaining : serverPlayers.guest?.timeRemaining;
+            let currentBt = hostColor === 'b' ? serverPlayers.host?.timeRemaining : serverPlayers.guest?.timeRemaining;
+
+            if (lastMoveTime) {
+                const elapsed = now - lastMoveTime;
+                if (serverTurn === 'w') {
+                    currentWt = Math.max(0, (currentWt || 0) - elapsed);
+                } else {
+                    currentBt = Math.max(0, (currentBt || 0) - elapsed);
+                }
+            }
+            
+            setLocalWhiteTime(currentWt);
+            setLocalBlackTime(currentBt);
+        }, 100);
+        return () => clearInterval(interval);
+    }, [timeControl, status, serverPlayers, serverTurn, lastMoveTime, playerColor, playerId]);
+
+    const getMaterialAdvantage = useCallback(() => {
+        if (!boardSnapshot) return { w: { score: 0, pieces: [] }, b: { score: 0, pieces: [] } };
+        const PIECE_VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+        const STARTING_COUNT: Record<string, number> = { p: 8, n: 2, b: 2, r: 2, q: 1 };
+        
+        const currentCount: Record<string, number> = {
+            'w-p': 0, 'w-n': 0, 'w-b': 0, 'w-r': 0, 'w-q': 0,
+            'b-p': 0, 'b-n': 0, 'b-b': 0, 'b-r': 0, 'b-q': 0
+        };
+
+        let wScore = 0;
+        let bScore = 0;
+
+        boardSnapshot.board.flat().forEach(sq => {
+            if (sq.piece && sq.piece.type !== 'k') {
+                currentCount[`${sq.piece.color}-${sq.piece.type}`]++;
+                const val = PIECE_VALUES[sq.piece.type] || 0;
+                if (sq.piece.color === 'w') wScore += val;
+                else bScore += val;
+            }
+        });
+
+        const capturedByWhite: string[] = [];
+        const capturedByBlack: string[] = [];
+
+        ['p', 'n', 'b', 'r', 'q'].forEach(type => {
+            const missingW = Math.max(0, STARTING_COUNT[type] - currentCount[`w-${type}`]);
+            const missingB = Math.max(0, STARTING_COUNT[type] - currentCount[`b-${type}`]);
+            
+            for(let i=0; i<missingW; i++) capturedByBlack.push(type);
+            for(let i=0; i<missingB; i++) capturedByWhite.push(type);
+        });
+
+        return {
+            w: { score: Math.max(0, wScore - bScore), pieces: capturedByWhite },
+            b: { score: Math.max(0, bScore - wScore), pieces: capturedByBlack }
+        };
+    }, [boardSnapshot]);
 
     useEffect(() => {
         setBoardSnapshot(app.getSnapshot());
@@ -178,8 +275,12 @@ export default function OnlinePlay() {
         return () => window.removeEventListener('mousedown', handleGlobalClick);
     }, [app]);
 
-    const handleCreateRoom = (color: 'w' | 'b') => {
-        socket?.emit('create_room', { hostColor: color, playerId }, (res: any) => {
+    const handleCreateRoom = (color: 'w' | 'b' | 'random') => {
+        if (!playerName) { toast.error("Por favor, ingresa un nombre"); return; }
+        localStorage.setItem('chess_player_name', playerName);
+        localStorage.setItem('chess_player_avatar', playerAvatar);
+
+        socket?.emit('create_room', { hostColor: color, timeControl: selectedTime, playerName, playerAvatar, playerId }, (res: any) => {
             if (res.success) {
                 navigate(`/online/${res.roomId}`);
             }
@@ -188,6 +289,9 @@ export default function OnlinePlay() {
 
     const handleJoinRoom = () => {
         if (!inputRoomId) return;
+        if (!playerName) { toast.error("Por favor, ingresa un nombre"); return; }
+        localStorage.setItem('chess_player_name', playerName);
+        localStorage.setItem('chess_player_avatar', playerAvatar);
         navigate(`/online/${inputRoomId}`);
     };
 
@@ -503,56 +607,113 @@ export default function OnlinePlay() {
     const canUndo = app.engine.canUndo();
     const canRedo = app.engine.canRedo();
 
+        const formatTime = (timeMs: number | null) => {
+        if (timeMs === null) return '--:--';
+        const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    const timeOptions = {
+        bullet: [{ i: 60, inc: 0, label: '1 min' }, { i: 60, inc: 1, label: '1+1' }, { i: 120, inc: 1, label: '2+1' }],
+        blitz: [{ i: 180, inc: 2, label: '3+2' }, { i: 300, inc: 0, label: '5 min' }, { i: 300, inc: 5, label: '5+5' }],
+        rapid: [{ i: 600, inc: 0, label: '10 min' }, { i: 900, inc: 10, label: '15+10' }, { i: 1800, inc: 0, label: '30 min' }, { i: 600, inc: 5, label: '10+5' }, { i: 1200, inc: 0, label: '20 min' }, { i: 3600, inc: 0, label: '60 min' }]
+    };
+
+    const avatars = ['/assets/images/players/player-1.webp', '/assets/images/players/player-2.webp'];
+
     // --- RENDER LOBBY ---
     if (status === 'lobby') {
         return (
-            <div className="h-screen flex items-center justify-center p-4 bg-muted/20">
-                <Card className="w-full max-w-md shadow-lg border-primary/20">
+            <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+                <Card className="w-full max-w-lg shadow-lg border-primary/20">
                     <CardHeader className="text-center">
-                        <CardTitle className="text-3xl font-extrabold tracking-tight">Online Chess</CardTitle>
-                        <CardDescription>Crea una sala o únete con un código</CardDescription>
+                        <CardTitle className="text-3xl font-extrabold tracking-tight">Chess Online</CardTitle>
+                        <CardDescription>Configura tu perfil y crea o únete a una sala</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-6">
-                        <div className="flex flex-col gap-3 p-4 bg-secondary/50 rounded-lg border">
-                            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-                                Crear Sala Nueva
-                            </h3>
-                            <div className="grid grid-cols-2 gap-2">
-                                <Button
-                                    variant="outline"
-                                    className="border-primary/50 hover:bg-primary/10"
-                                    onClick={() => handleCreateRoom('w')}
-                                >
-                                    Jugar con Blancas
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="bg-black text-white hover:bg-zinc-800"
-                                    onClick={() => handleCreateRoom('b')}
-                                >
-                                    Jugar con Negras
-                                </Button>
+                        
+                        {/* Perfil */}
+                        <div className="flex flex-col gap-3 p-4 bg-secondary/30 rounded-lg border">
+                            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Tu Perfil</h3>
+                            <div className="flex gap-4 items-center">
+                                <div className="flex gap-2">
+                                    {avatars.map((av) => (
+                                        <img 
+                                            key={av} src={av} alt="Avatar" 
+                                            className={`w-12 h-12 rounded-md cursor-pointer border-2 ${playerAvatar === av ? 'border-primary' : 'border-transparent opacity-50'}`}
+                                            onClick={() => setPlayerAvatar(av)}
+                                        />
+                                    ))}
+                                </div>
+                                <input
+                                    type="text"
+                                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    placeholder="Ingresa tu nombre..."
+                                    value={playerName}
+                                    onChange={(e) => setPlayerName(e.target.value)}
+                                />
                             </div>
+                        </div>
+
+                        {/* Crear Sala */}
+                        <div className="flex flex-col gap-4 p-4 bg-secondary/30 rounded-lg border">
+                            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Crear Sala</h3>
+                            
+                            <div className="flex gap-2">
+                                {(['none', 'bullet', 'blitz', 'rapid'] as const).map(cat => (
+                                    <Button 
+                                        key={cat} 
+                                        variant={selectedTimeCategory === cat ? 'default' : 'outline'} 
+                                        onClick={() => setSelectedTimeCategory(cat)}
+                                        className="flex-1 text-xs"
+                                    >
+                                        {cat === 'none' ? 'Sin Tiempo' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                                    </Button>
+                                ))}
+                            </div>
+
+                            {selectedTimeCategory !== 'none' && (
+                                <div className="grid grid-cols-3 gap-2">
+                                    {timeOptions[selectedTimeCategory as keyof typeof timeOptions].map(opt => {
+                                        const isSelected = selectedTime?.initial === opt.i && selectedTime?.increment === opt.inc;
+                                        return (
+                                            <Button 
+                                                key={opt.label} 
+                                                variant={isSelected ? 'default' : 'secondary'}
+                                                onClick={() => setSelectedTime({ initial: opt.i, increment: opt.inc })}
+                                                className="text-xs"
+                                            >
+                                                {opt.label}
+                                            </Button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-3 gap-2 mt-2">
+                                <Button variant={selectedColor === 'w' ? 'default' : 'outline'} onClick={() => setSelectedColor('w')} className="bg-white text-black hover:bg-gray-200">Blancas</Button>
+                                <Button variant={selectedColor === 'random' ? 'default' : 'outline'} onClick={() => setSelectedColor('random')}>Aleatorio</Button>
+                                <Button variant={selectedColor === 'b' ? 'default' : 'outline'} onClick={() => setSelectedColor('b')} className="bg-black text-white hover:bg-zinc-800">Negras</Button>
+                            </div>
+
+                            <Button className="w-full mt-2" onClick={() => handleCreateRoom(selectedColor)}>Crear y Jugar</Button>
                         </div>
 
                         <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <span className="w-full border-t border-muted-foreground/20" />
-                            </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-card px-2 text-muted-foreground font-medium">O</span>
-                            </div>
+                            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-muted-foreground/20" /></div>
+                            <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground font-medium">O</span></div>
                         </div>
 
-                        <div className="flex flex-col gap-3 p-4 bg-secondary/50 rounded-lg border">
-                            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-                                Unirse a Sala
-                            </h3>
+                        {/* Unirse */}
+                        <div className="flex flex-col gap-3 p-4 bg-secondary/30 rounded-lg border">
+                            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Unirse a Sala</h3>
                             <div className="flex gap-2">
                                 <input
                                     type="text"
-                                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    placeholder="Room ID"
+                                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm uppercase"
+                                    placeholder="Código de Sala"
                                     value={inputRoomId}
                                     onChange={(e) => setInputRoomId(e.target.value.toUpperCase())}
                                 />
@@ -569,23 +730,14 @@ export default function OnlinePlay() {
         return (
             <div className="h-screen flex items-center justify-center p-4 bg-muted/20">
                 <Card className="w-full max-w-sm text-center border-primary/20 shadow-lg">
-                    <CardHeader>
-                        <CardTitle>Sala Creada</CardTitle>
-                    </CardHeader>
+                    <CardHeader><CardTitle>Sala Creada</CardTitle></CardHeader>
                     <CardContent className="flex flex-col items-center gap-6 pb-6">
                         <Spinner className="size-8" />
                         <div className="flex flex-col items-center gap-2">
                             <p className="text-sm text-muted-foreground">Comparte este código con tu oponente:</p>
                             <div className="flex items-center gap-2 bg-secondary px-4 py-2 rounded-md font-mono text-xl border shadow-inner">
                                 <span>{roomId}</span>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => navigator.clipboard.writeText(roomId)}
-                                    className="h-8 w-8 ml-2"
-                                >
-                                    <Copy className="h-4 w-4" />
-                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(roomId)} className="h-8 w-8 ml-2"><Copy className="h-4 w-4" /></Button>
                             </div>
                         </div>
                         <p className="text-sm animate-pulse text-primary/80">Esperando a que se una...</p>
@@ -595,312 +747,195 @@ export default function OnlinePlay() {
         );
     }
 
+    const { w: materialW, b: materialB } = getMaterialAdvantage();
+
+    const localIsHost = serverPlayers?.host?.playerId === playerId;
+    
+    // Determinar quién es quién para renderizar header (oponente) y footer (local)
+    // El oponente siempre es el otro
+    const opponent = localIsHost ? serverPlayers?.guest : serverPlayers?.host;
+    const local = localIsHost ? serverPlayers?.host : serverPlayers?.guest;
+
+    const localColor = playerColor;
+    const opponentColor = playerColor === 'w' ? 'b' : 'w';
+
+    const localMat = localColor === 'w' ? materialW : materialB;
+    const oppMat = opponentColor === 'w' ? materialW : materialB;
+
+    const renderPlayerInfo = (player: any, color: 'w'|'b', isOpponent: boolean) => {
+        if (!player) return null;
+
+        const isTurn = serverTurn === color;
+        const timeRemaining = color === 'w' ? localWhiteTime : localBlackTime;
+        const material = color === 'w' ? materialW : materialB;
+
+        return (
+            <div className="flex justify-between w-full">
+                <div className="flex gap-4 items-center">
+                    <div className="relative">
+                        <img className="rounded-sm" src={player.avatar || '/assets/images/players/player-1.webp'} alt="Avatar" height="40" width="40" />
+                        {!player.connected && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-black" title="Desconectado" />
+                        )}
+                    </div>
+                    <div className="flex flex-col justify-center">
+                        <div className="flex items-center gap-2">
+                            <h1 className="font-semibold text-md">{player.name || 'Jugador'}</h1>
+                            {!player.connected && <span className="text-xs text-red-500 font-bold animate-pulse">Reconectando...</span>}
+                        </div>
+                        
+                        {/* Listado de piezas capturadas */}
+                        <div className="flex items-center gap-1 min-h-[20px]">
+                            {material.pieces.map((p, idx) => (
+                                <img key={idx} src={`/assets/images/pieces/standard/${color === 'w' ? 'b' : 'w'}${p}.svg`} className="w-4 h-4 object-contain" alt={p}/>
+                            ))}
+                            {material.score > 0 && <span className="text-xs text-muted-foreground ml-1">+{material.score}</span>}
+                        </div>
+                    </div>
+                </div>
+                
+                {timeControl && (
+                    <div className={`flex items-center gap-3 px-4 rounded-md transition-colors ${isTurn ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-secondary-foreground opacity-50'}`}>
+                        <Clock className="w-4 h-4" />
+                        <div className="font-bold text-lg font-mono">{formatTime(timeRemaining)}</div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
-        <div className="h-screen overflow-hidden p-2">
-            <div className="flex flex-col md:flex-row gap-2 w-fit mx-auto">
-                <div>
-                    {/* Mobile History (Horizontal) */}
-                    <div className="md:hidden block w-full max-w-[calc(100vw-4rem)]">
-                        <ScrollArea
-                            className="w-full whitespace-nowrap rounded-md border bg-secondary/20"
-                            ref={scrollRef}
-                        >
-                            <div className="flex w-max space-x-2 p-2 items-center h-12">
-                                {app.engine
-                                    .getGameTree()
-                                    .getMainLine()
-                                    .slice(1)
-                                    .map((node: any, i: number) => (
-                                        <div key={node.id} className="inline-flex items-center gap-1">
-                                            {i % 2 === 0 && (
-                                                <span className="text-muted-foreground text-xs font-mono ml-2">
-                                                    {i / 2 + 1}.
-                                                </span>
-                                            )}
-                                            <Button
-                                                variant={
-                                                    app.engine.getGameTree().getCurrentNode().id === node.id
-                                                        ? 'default'
-                                                        : 'secondary'
+        <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
+            {/* Oponente (Header) */}
+            <header className="flex-shrink-0 h-[80px] p-4 flex items-center justify-center max-w-4xl w-full mx-auto">
+                {renderPlayerInfo(opponent, opponentColor, true)}
+            </header>
+
+            {/* Tablero (Centro) */}
+            <main className="flex-1 min-h-0 w-full flex items-center justify-center p-0 relative">
+                <div
+                    className="board-height board-width contain-layout relative"
+                    onContextMenu={(e) => e.preventDefault()}
+                    onMouseDown={handleBoardMouseDown}
+                >
+                    <div
+                        className="inset-0 absolute bg-cover bg-center select-none rounded-sm overflow-hidden"
+                        style={{ backgroundImage: `url(${theme.board.backgroundImage})` }}
+                        ref={chessboardRef}
+                    >
+                        <BoardHighlights
+                            selectedSquare={toCoords(selectedSquareAlg)}
+                            lastMove={
+                                app.engine.getLastMove()
+                                    ? {
+                                          from: toCoords(app.engine.getLastMove()!.from)!,
+                                          to: toCoords(app.engine.getLastMove()!.to)!,
+                                      }
+                                    : null
+                            }
+                            validDestinations={validDestinations}
+                            hoverSquare={toCoords(hoverSquare)}
+                            premoves={premoves}
+                            flipped={playerColor === 'b'}
+                        />
+
+                        <BoardAnnotations
+                            arrows={mappedArrows}
+                            highlights={mappedHighlights}
+                            flipped={playerColor === 'b'}
+                        />
+
+                        {pendingPromotion && (
+                            <>
+                                <div
+                                    className="absolute inset-0 z-40 pointer-events-auto"
+                                    onClick={() => setPendingPromotion(null)}
+                                />
+                                <div
+                                    className={`absolute z-50 flex ${pendingPromotion.color === 'w' ? 'flex-col' : 'flex-col-reverse'} bg-white dark:bg-black shadow-2xl rounded-md overflow-hidden pointer-events-auto`}
+                                    style={{
+                                        left: `${pendingPromotion.dropX * 12.5}%`,
+                                        ...(pendingPromotion.color === 'w'
+                                            ? { top: `${pendingPromotion.dropY * 12.5}%` }
+                                            : { bottom: `${(7 - pendingPromotion.dropY) * 12.5}%` }),
+                                        width: '12.5%',
+                                    }}
+                                >
+                                    {(['q', 'n', 'r', 'b'] as PieceSymbol[]).map((pieceType) => (
+                                        <div
+                                            key={pieceType}
+                                            className="w-full aspect-square hover:bg-muted/50 cursor-pointer flex items-center justify-center transition-colors"
+                                            onClick={() => handlePromotionSelect(pieceType)}
+                                        >
+                                            <img
+                                                src={
+                                                    theme.pieces[pieceType as keyof typeof theme.pieces][
+                                                        pendingPromotion.color
+                                                    ]
                                                 }
-                                                size="sm"
-                                                className="h-7 text-xs px-2"
-                                                onClick={() => {
-                                                    app.engine.goToMove(node.id);
-                                                    setBoardSnapshot(app.getSnapshot());
-                                                }}
-                                            >
-                                                {node.move?.san}
-                                            </Button>
+                                                alt={pieceType}
+                                                className="w-[85%] h-[85%] object-contain drop-shadow-md"
+                                            />
                                         </div>
                                     ))}
-                            </div>
-                            <ScrollBar orientation="horizontal" />
-                        </ScrollArea>
-                    </div>
-
-                    <header className="py-2">
-                        <div className="flex justify-between">
-                            <div className="flex gap-4">
-                                <div>
-                                    <img
-                                        className="rounded-sm"
-                                        loading="lazy"
-                                        src="/assets/images/players/player-1.webp"
-                                        alt="Avatar"
-                                        height="40"
-                                        width="40"
-                                    />
                                 </div>
-                                <div>
-                                    <h1 className="font-semibold text-md">Name 1</h1>
-                                    <div className=" text-sm text-muted-foreground">Piezas capturadas</div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-8 bg-background/30 px-3 rounded-md">
-                                <Clock className="text-muted-foreground" />
-                                <div className="font-bold">2:00</div>
-                            </div>
-                        </div>
-                    </header>
+                            </>
+                        )}
 
-                    <div className="flex flex-col w-full">
-                        <div
-                            className="board-height board-width contain-layout relative"
-                            onContextMenu={(e) => e.preventDefault()}
-                            onMouseDown={handleBoardMouseDown}
-                        >
-                            <div
-                                className="inset-0 absolute bg-cover bg-center select-none rounded-md"
-                                style={{ backgroundImage: `url(${theme.board.backgroundImage})` }}
-                                ref={chessboardRef}
-                            >
-                                <BoardHighlights
-                                    selectedSquare={toCoords(selectedSquareAlg)}
-                                    lastMove={
-                                        app.engine.getLastMove()
-                                            ? {
-                                                  from: toCoords(app.engine.getLastMove()!.from)!,
-                                                  to: toCoords(app.engine.getLastMove()!.to)!,
-                                              }
-                                            : null
-                                    }
-                                    validDestinations={validDestinations}
-                                    hoverSquare={toCoords(hoverSquare)}
-                                    premoves={premoves}
-                                    flipped={playerColor === 'b'}
-                                />
+                        {boardSnapshot &&
+                            boardSnapshot.board.flatMap((row, rowIndex) =>
+                                row.map((square, colIndex) => {
+                                    const renderRow = playerColor === 'b' ? 7 - rowIndex : rowIndex;
+                                    const renderCol = playerColor === 'b' ? 7 - colIndex : colIndex;
 
-                                <BoardAnnotations
-                                    arrows={mappedArrows}
-                                    highlights={mappedHighlights}
-                                    flipped={playerColor === 'b'}
-                                />
-
-                                {pendingPromotion && (
-                                    <>
+                                    return (
                                         <div
-                                            className="absolute inset-0 z-40 pointer-events-auto"
-                                            onClick={() => setPendingPromotion(null)}
-                                        />
-                                        <div
-                                            className={`absolute z-50 flex ${pendingPromotion.color === 'w' ? 'flex-col' : 'flex-col-reverse'} bg-white dark:bg-black shadow-2xl rounded-md overflow-hidden pointer-events-auto`}
+                                            key={`sq-int-${square.algebraic}`}
+                                            className="absolute w-[12.5%] h-[12.5%] flex items-center justify-center cursor-pointer pointer-events-auto z-25"
                                             style={{
-                                                left: `${pendingPromotion.dropX * 12.5}%`,
-                                                ...(pendingPromotion.color === 'w'
-                                                    ? { top: `${pendingPromotion.dropY * 12.5}%` }
-                                                    : { bottom: `${(7 - pendingPromotion.dropY) * 12.5}%` }),
-                                                width: '12.5%',
+                                                top: `${renderRow * 12.5}%`,
+                                                left: `${renderCol * 12.5}%`,
+                                            }}
+                                            onMouseDown={(e) => {
+                                                if (e.button === 0) {
+                                                    safeHandleSquareClick(square.algebraic);
+                                                    if (square.piece) {
+                                                        const isHint = square.isValidDestination && isSelectedTurn;
+                                                        if (!isHint) grabPiece(e, square.algebraic);
+                                                    }
+                                                }
                                             }}
                                         >
-                                            {(['q', 'n', 'r', 'b'] as PieceSymbol[]).map((pieceType) => (
-                                                <div
-                                                    key={pieceType}
-                                                    className="w-full aspect-square hover:bg-muted/50 cursor-pointer flex items-center justify-center transition-colors"
-                                                    onClick={() => handlePromotionSelect(pieceType)}
-                                                >
-                                                    <img
-                                                        src={
-                                                            theme.pieces[pieceType as keyof typeof theme.pieces][
-                                                                pendingPromotion.color
-                                                            ]
-                                                        }
-                                                        alt={pieceType}
-                                                        className="w-[85%] h-[85%] object-contain drop-shadow-md"
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-
-                                {boardSnapshot &&
-                                    boardSnapshot.board.flatMap((row, rowIndex) =>
-                                        row.map((square, colIndex) => {
-                                            const renderRow = playerColor === 'b' ? 7 - rowIndex : rowIndex;
-                                            const renderCol = playerColor === 'b' ? 7 - colIndex : colIndex;
-
-                                            return (
-                                                <div
-                                                    key={`sq-int-${square.algebraic}`}
-                                                    className="absolute w-[12.5%] h-[12.5%] flex items-center justify-center cursor-pointer pointer-events-auto z-25"
-                                                    style={{
-                                                        top: `${renderRow * 12.5}%`,
-                                                        left: `${renderCol * 12.5}%`,
-                                                    }}
-                                                    onMouseDown={(e) => {
-                                                        if (e.button === 0) {
-                                                            safeHandleSquareClick(square.algebraic);
-                                                            if (square.piece) {
-                                                                const isHint =
-                                                                    square.isValidDestination && isSelectedTurn;
-                                                                if (!isHint) grabPiece(e, square.algebraic);
-                                                            }
-                                                        }
-                                                    }}
-                                                >
-                                                    {square.piece && (
-                                                        <img
-                                                            src={
-                                                                theme.pieces[
-                                                                    square.piece.type as keyof typeof theme.pieces
-                                                                ][square.piece.color]
-                                                            }
-                                                            alt={square.piece.type}
-                                                            className={`w-full h-full object-contain pointer-events-none relative`}
-                                                            data-square={square.algebraic}
-                                                        />
-                                                    )}
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                            </div>
-                            <Coordinates
-                                className="pointer-events-none z-30 relative"
-                                light={coordinateColors.light}
-                                dark={coordinateColors.dark}
-                                flipped={playerColor === 'b'}
-                            />
-                        </div>
-                    </div>
-                    <header className="py-2">
-                        <div className="flex justify-between">
-                            <div className="flex gap-4">
-                                <div>
-                                    <img
-                                        className="rounded-sm"
-                                        loading="lazy"
-                                        src="/assets/images/players/player-2.webp"
-                                        alt="Avatar"
-                                        height="40"
-                                        width="40"
-                                    />
-                                </div>
-                                <div>
-                                    <h1 className="font-semibold text-md">Name 2</h1>
-                                    <div className=" text-sm text-muted-foreground">Piezas capturadas</div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-8 bg-background/30 px-3 rounded-md">
-                                <Clock className="text-muted-foreground" />
-                                <div className="font-bold">2:00</div>
-                            </div>
-                        </div>
-                    </header>
-                </div>
-
-                {/* Desktop History (Vertical Sidebar) */}
-                <Card className="hidden md:flex w-[300px]">
-                    <CardHeader>
-                        <CardTitle>History</CardTitle>
-                    </CardHeader>
-                    <CardContent className="overflow-y-auto flex-1 p-0">
-                        <div className="flex flex-col text-sm">
-                            {app.engine.getGameTree().getMainLine().length > 1 ? (
-                                app.engine
-                                    .getGameTree()
-                                    .getMainLine()
-                                    .slice(1)
-                                    .reduce((acc: any, node: any, i: number) => {
-                                        if (i % 2 === 0) acc.push({ turn: i / 2 + 1, white: node, black: null });
-                                        else acc[acc.length - 1].black = node;
-                                        return acc;
-                                    }, [] as any[])
-                                    .map((pair: any) => (
-                                        <div
-                                            key={pair.turn}
-                                            className="flex items-center px-4 py-1.5 hover:bg-muted/30 group border-b border-border/50"
-                                        >
-                                            <div className="w-8 text-muted-foreground font-mono select-none flex items-center">
-                                                {pair.turn}.
-                                            </div>
-                                            <div className="grid w-full grid-cols-2 gap-2">
-                                                <Button
-                                                    variant={
-                                                        app.engine.getGameTree().getCurrentNode().id === pair.white.id
-                                                            ? 'default'
-                                                            : 'secondary'
+                                            {square.piece && (
+                                                <img
+                                                    src={
+                                                        theme.pieces[
+                                                            square.piece.type as keyof typeof theme.pieces
+                                                        ][square.piece.color]
                                                     }
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        app.engine.goToMove(pair.white.id);
-                                                        setBoardSnapshot(app.getSnapshot());
-                                                    }}
-                                                    className={'w-fit'}
-                                                >
-                                                    {pair.white.move?.san}
-                                                </Button>
-                                                {pair.black && (
-                                                    <Button
-                                                        variant={
-                                                            app.engine.getGameTree().getCurrentNode().id ===
-                                                            pair.black.id
-                                                                ? 'default'
-                                                                : 'secondary'
-                                                        }
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            app.engine.goToMove(pair.black.id);
-                                                            setBoardSnapshot(app.getSnapshot());
-                                                        }}
-                                                        className={'w-fit'}
-                                                    >
-                                                        {pair.black.move?.san}
-                                                    </Button>
-                                                )}
-                                            </div>
+                                                    alt={square.piece.type}
+                                                    className={`w-full h-full object-contain pointer-events-none relative`}
+                                                    data-square={square.algebraic}
+                                                />
+                                            )}
                                         </div>
-                                    ))
-                            ) : (
-                                <div className="text-center py-4 text-muted-foreground">No moves yet</div>
+                                    );
+                                })
                             )}
-                        </div>
-                    </CardContent>
-                    <CardFooter>
-                        <div className="flex gap-2 w-full justify-center md:justify-start">
-                            <Button
-                                disabled={!canUndo}
-                                onClick={() => {
-                                    app.engine.undo();
-                                    setBoardSnapshot(app.getSnapshot());
-                                }}
-                            >
-                                <ArrowLeft className="h-5 w-5" />
-                            </Button>
-                            <Button
-                                disabled={!canRedo}
-                                onClick={() => {
-                                    app.engine.redo();
-                                    setBoardSnapshot(app.getSnapshot());
-                                }}
-                            >
-                                <ArrowRight className="h-5 w-5" />
-                            </Button>
-                        </div>
-                    </CardFooter>
-                </Card>
-            </div>
+                    </div>
+                    <Coordinates
+                        className="pointer-events-none z-30 relative"
+                        light={coordinateColors.light}
+                        dark={coordinateColors.dark}
+                        flipped={playerColor === 'b'}
+                    />
+                </div>
+            </main>
+
+            {/* Local Player (Footer) */}
+            <footer className="flex-shrink-0 h-[80px] p-4 flex items-center justify-center max-w-4xl w-full mx-auto">
+                {renderPlayerInfo(local, localColor, false)}
+            </footer>
         </div>
     );
 }

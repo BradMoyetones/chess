@@ -15,7 +15,7 @@ const io = new Server(httpServer, {
     }
 });
 
-// Mapa en memoria: roomId -> { host, guest, hostColor, fen, pgn, createdAt, lastActivity }
+// Mapa en memoria: roomId -> { host, guest, hostColor, timeControl, fen, pgn, turn, lastMoveTime, createdAt, lastActivity }
 const rooms = new Map();
 
 function generateRoomId() {
@@ -26,29 +26,39 @@ io.on('connection', (socket) => {
     console.log(`[+] Cliente conectado: ${socket.id}`);
 
     // --- CREAR SALA ---
-    socket.on('create_room', ({ hostColor, playerId }, callback) => {
+    socket.on('create_room', ({ hostColor, timeControl, playerName, playerAvatar, playerId }, callback) => {
         const roomId = generateRoomId();
         const startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        
+        let finalHostColor = hostColor;
+        if (hostColor === 'random' || !hostColor) {
+            finalHostColor = Math.random() < 0.5 ? 'w' : 'b';
+        }
+
+        const initialTimeMs = timeControl ? timeControl.initial * 1000 : null;
 
         rooms.set(roomId, {
             id: roomId,
-            host: { socketId: socket.id, playerId },
+            host: { socketId: socket.id, playerId, name: playerName || 'Jugador 1', avatar: playerAvatar, timeRemaining: initialTimeMs, connected: true },
             guest: null,
-            hostColor: hostColor || 'w', // 'w' o 'b'
+            hostColor: finalHostColor,
+            timeControl: timeControl, // { initial, increment } en segundos
             fen: startFen,
             pgn: '',
+            turn: 'w',
+            lastMoveTime: null,
             createdAt: Date.now(),
             lastActivity: Date.now()
         });
 
         socket.join(roomId);
-        console.log(`[ROOM] ${socket.id} creó la sala ${roomId} (Host Color: ${hostColor})`);
+        console.log(`[ROOM] ${socket.id} creó la sala ${roomId} (Host Color: ${finalHostColor})`);
         
-        if (callback) callback({ success: true, roomId, color: hostColor, fen: startFen });
+        if (callback) callback({ success: true, roomId, color: finalHostColor, fen: startFen });
     });
 
     // --- UNIRSE A SALA ---
-    socket.on('join_room', ({ roomId, playerId }, callback) => {
+    socket.on('join_room', ({ roomId, playerId, playerName, playerAvatar }, callback) => {
         const room = rooms.get(roomId);
 
         if (!room) {
@@ -56,16 +66,28 @@ io.on('connection', (socket) => {
             return;
         }
 
+        const guestColor = room.hostColor === 'w' ? 'b' : 'w';
+
         // ¿Es una reconexión del Host?
         if (room.host.playerId === playerId) {
             console.log(`[ROOM] ${socket.id} (Host) se reconectó a la sala ${roomId}`);
             room.host.socketId = socket.id;
+            room.host.connected = true;
             socket.join(roomId);
-            if (callback) callback({ success: true, roomId, color: room.hostColor, fen: room.fen, pgn: room.pgn, waiting: !room.guest });
             
-            // Notificar al guest (si está) que el host volvió
+            if (callback) {
+                callback({ 
+                    success: true, roomId, color: room.hostColor, fen: room.fen, pgn: room.pgn, 
+                    waiting: !room.guest,
+                    timeControl: room.timeControl,
+                    players: { host: room.host, guest: room.guest },
+                    turn: room.turn,
+                    lastMoveTime: room.lastMoveTime
+                });
+            }
+            
             if (room.guest) {
-                socket.to(roomId).emit('opponent_joined');
+                socket.to(roomId).emit('opponent_joined', { players: { host: room.host, guest: room.guest } });
             }
             return;
         }
@@ -74,12 +96,21 @@ io.on('connection', (socket) => {
         if (room.guest && room.guest.playerId === playerId) {
             console.log(`[ROOM] ${socket.id} (Guest) se reconectó a la sala ${roomId}`);
             room.guest.socketId = socket.id;
+            room.guest.connected = true;
             socket.join(roomId);
-            const guestColor = room.hostColor === 'w' ? 'b' : 'w';
-            if (callback) callback({ success: true, roomId, color: guestColor, fen: room.fen, pgn: room.pgn, waiting: false });
             
-            // Notificamos al host que volvió
-            socket.to(roomId).emit('opponent_joined');
+            if (callback) {
+                callback({ 
+                    success: true, roomId, color: guestColor, fen: room.fen, pgn: room.pgn, 
+                    waiting: false,
+                    timeControl: room.timeControl,
+                    players: { host: room.host, guest: room.guest },
+                    turn: room.turn,
+                    lastMoveTime: room.lastMoveTime
+                });
+            }
+            
+            socket.to(roomId).emit('opponent_joined', { players: { host: room.host, guest: room.guest } });
             return;
         }
 
@@ -89,18 +120,34 @@ io.on('connection', (socket) => {
             return;
         }
 
-        room.guest = { socketId: socket.id, playerId };
+        const initialTimeMs = room.timeControl ? room.timeControl.initial * 1000 : null;
+
+        room.guest = { 
+            socketId: socket.id, 
+            playerId, 
+            name: playerName || 'Jugador 2', 
+            avatar: playerAvatar, 
+            timeRemaining: initialTimeMs, 
+            connected: true 
+        };
         room.lastActivity = Date.now();
+        room.lastMoveTime = Date.now(); // Comienza el reloj de las blancas cuando entra el guest
         socket.join(roomId);
         
-        const guestColor = room.hostColor === 'w' ? 'b' : 'w';
         console.log(`[ROOM] ${socket.id} se unió a la sala ${roomId} como nuevo Guest (Color: ${guestColor})`);
 
         if (callback) {
-            callback({ success: true, roomId, color: guestColor, fen: room.fen, pgn: room.pgn, waiting: false });
+            callback({ 
+                success: true, roomId, color: guestColor, fen: room.fen, pgn: room.pgn, 
+                waiting: false,
+                timeControl: room.timeControl,
+                players: { host: room.host, guest: room.guest },
+                turn: room.turn,
+                lastMoveTime: room.lastMoveTime
+            });
         }
 
-        socket.to(roomId).emit('opponent_joined');
+        socket.to(roomId).emit('opponent_joined', { players: { host: room.host, guest: room.guest }, lastMoveTime: room.lastMoveTime });
     });
 
     // --- MOVIMIENTO ---
@@ -108,11 +155,32 @@ io.on('connection', (socket) => {
         const room = rooms.get(roomId);
         if (!room) return;
 
+        const now = Date.now();
+        
+        // Actualizar tiempos si hay control de tiempo
+        if (room.timeControl && room.lastMoveTime) {
+            const timeElapsed = now - room.lastMoveTime;
+            const incrementMs = room.timeControl.increment * 1000;
+            
+            if (room.turn === room.hostColor) {
+                room.host.timeRemaining = Math.max(0, room.host.timeRemaining - timeElapsed) + incrementMs;
+            } else {
+                room.guest.timeRemaining = Math.max(0, room.guest.timeRemaining - timeElapsed) + incrementMs;
+            }
+        }
+
         room.fen = fen;
         if (pgn) room.pgn = pgn;
-        room.lastActivity = Date.now();
+        room.turn = room.turn === 'w' ? 'b' : 'w';
+        room.lastMoveTime = now;
+        room.lastActivity = now;
 
-        socket.to(roomId).emit('move_received', { moveData, fen, pgn });
+        socket.to(roomId).emit('move_received', { 
+            moveData, fen, pgn, 
+            players: { host: room.host, guest: room.guest },
+            turn: room.turn,
+            lastMoveTime: room.lastMoveTime
+        });
         console.log(`[MOVE] Sala ${roomId} | ${moveData.from} -> ${moveData.to}`);
     });
 
@@ -120,8 +188,12 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`[-] Cliente desconectado: ${socket.id}`);
         for (const [roomId, room] of rooms.entries()) {
-            if (room.host.socketId === socket.id || (room.guest && room.guest.socketId === socket.id)) {
-                io.to(roomId).emit('opponent_disconnected');
+            if (room.host.socketId === socket.id) {
+                room.host.connected = false;
+                io.to(roomId).emit('opponent_disconnected', { hostConnected: false, guestConnected: room.guest ? room.guest.connected : false });
+            } else if (room.guest && room.guest.socketId === socket.id) {
+                room.guest.connected = false;
+                io.to(roomId).emit('opponent_disconnected', { hostConnected: room.host.connected, guestConnected: false });
             }
         }
     });
@@ -135,12 +207,8 @@ setInterval(() => {
     for (const [roomId, room] of rooms.entries()) {
         const isInactive = (now - room.lastActivity) > FIVE_MINUTES;
         
-        // Verificamos si ambos sockets están muertos
-        let hostConnected = false;
-        let guestConnected = false;
-        
-        if (io.sockets.sockets.has(room.host.socketId)) hostConnected = true;
-        if (room.guest && io.sockets.sockets.has(room.guest.socketId)) guestConnected = true;
+        const hostConnected = room.host.connected;
+        const guestConnected = room.guest ? room.guest.connected : false;
 
         const isAbandoned = !hostConnected && !guestConnected && room.guest; // Si ambos se fueron
         const isHostAbandoned = !hostConnected && !room.guest && (now - room.createdAt) > FIVE_MINUTES; // Si lo creó y nadie entró
