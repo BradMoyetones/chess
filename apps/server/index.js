@@ -131,7 +131,7 @@ io.on('connection', (socket) => {
             connected: true 
         };
         room.lastActivity = Date.now();
-        room.lastMoveTime = Date.now(); // Comienza el reloj de las blancas cuando entra el guest
+        room.lastMoveTime = null; // Comienza el reloj de las blancas después de que mueven
         socket.join(roomId);
         
         console.log(`[ROOM] ${socket.id} se unió a la sala ${roomId} como nuevo Guest (Color: ${guestColor})`);
@@ -151,13 +151,13 @@ io.on('connection', (socket) => {
     });
 
     // --- MOVIMIENTO ---
-    socket.on('move', ({ roomId, moveData, fen, pgn }) => {
+    socket.on('move', ({ roomId, moveData, fen, pgn }, callback) => {
         const room = rooms.get(roomId);
         if (!room) return;
 
         const now = Date.now();
         
-        // Actualizar tiempos si hay control de tiempo
+        // Actualizar tiempos si hay control de tiempo y ya ha habido un turno
         if (room.timeControl && room.lastMoveTime) {
             const timeElapsed = now - room.lastMoveTime;
             const incrementMs = room.timeControl.increment * 1000;
@@ -175,11 +175,17 @@ io.on('connection', (socket) => {
         room.lastMoveTime = now;
         room.lastActivity = now;
 
-        socket.to(roomId).emit('move_received', { 
-            moveData, fen, pgn, 
+        const ackData = { 
             players: { host: room.host, guest: room.guest },
             turn: room.turn,
             lastMoveTime: room.lastMoveTime
+        };
+
+        if (callback) callback(ackData);
+
+        socket.to(roomId).emit('move_received', { 
+            moveData, fen, pgn, 
+            ...ackData
         });
         console.log(`[MOVE] Sala ${roomId} | ${moveData.from} -> ${moveData.to}`);
     });

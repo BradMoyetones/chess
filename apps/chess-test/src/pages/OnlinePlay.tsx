@@ -99,6 +99,12 @@ export default function OnlinePlay() {
                 moveData,
                 fen: app.engine.getFen(),
                 pgn: app.engine.getPgn(),
+            }, (ackData: any) => {
+                if (ackData) {
+                    if (ackData.players) setServerPlayers(ackData.players);
+                    if (ackData.turn) setServerTurn(ackData.turn);
+                    if (ackData.lastMoveTime !== undefined) setLastMoveTime(ackData.lastMoveTime);
+                }
             });
         },
         [socket, roomId, app]
@@ -110,15 +116,11 @@ export default function OnlinePlay() {
 
         newSocket.on('opponent_joined', (data) => {
             if (data?.players) setServerPlayers(data.players);
-            if (data?.lastMoveTime) setLastMoveTime(data.lastMoveTime);
+            if (data?.lastMoveTime !== undefined) setLastMoveTime(data.lastMoveTime);
             setStatus('playing');
         });
 
         newSocket.on('move_received', ({ moveData, players, turn, lastMoveTime }) => {
-            if (players) setServerPlayers(players);
-            if (turn) setServerTurn(turn);
-            if (lastMoveTime) setLastMoveTime(lastMoveTime);
-
             const mainLine = app.engine.getGameTree().getMainLine();
             if (mainLine.length > 0) {
                 app.engine.goToMove(mainLine[mainLine.length - 1].id);
@@ -126,6 +128,9 @@ export default function OnlinePlay() {
             app.engine.attemptMove(moveData.from, moveData.to, moveData.promotion);
             app.interaction.clearSelection();
             setBoardSnapshot(app.getSnapshot());
+            if (players) setServerPlayers(players);
+            if (turn) setServerTurn(turn);
+            if (lastMoveTime !== undefined) setLastMoveTime(lastMoveTime);
         });
 
         newSocket.on('opponent_disconnected', ({ hostConnected, guestConnected }) => {
@@ -151,16 +156,15 @@ export default function OnlinePlay() {
                 if (res.success) {
                     setRoomId(res.roomId);
                     setPlayerColor(res.color);
-                    if (res.players) setServerPlayers(res.players);
-                    if (res.turn) setServerTurn(res.turn);
-                    if (res.lastMoveTime) setLastMoveTime(res.lastMoveTime);
-                    if (res.timeControl) setTimeControl(res.timeControl);
-
                     if (res.pgn) {
                         app.engine.loadPgn(res.pgn);
                     } else {
                         app.engine.loadFen(res.fen);
                     }
+                    if (res.players) setServerPlayers(res.players);
+                    if (res.turn) setServerTurn(res.turn);
+                    if (res.timeControl) setTimeControl(res.timeControl);
+                    if (res.lastMoveTime !== undefined) setLastMoveTime(res.lastMoveTime);
                     setBoardSnapshot(app.getSnapshot());
                     setStatus(res.waiting ? 'waiting' : 'playing');
                 } else {
@@ -493,7 +497,17 @@ export default function OnlinePlay() {
             const piece = app.engine.getPieceAt(algebraic);
 
             // Bloqueo del oponente
-            if (!app.interaction.getSelectedSquare() && piece && piece.color !== playerColor) return;
+            if (piece && piece.color !== playerColor) {
+                const selectedSq = app.interaction.getSelectedSquare();
+                if (selectedSq) {
+                    const validDests = app.interaction.getValidDestinations();
+                    if (!validDests.includes(algebraic)) {
+                        return;
+                    }
+                } else {
+                    return;
+                }
+            }
 
             if (app.interaction.getSelectedSquare() === algebraic) {
                 app.interaction.clearSelection();
@@ -607,7 +621,7 @@ export default function OnlinePlay() {
     const canUndo = app.engine.canUndo();
     const canRedo = app.engine.canRedo();
 
-        const formatTime = (timeMs: number | null) => {
+    const formatTime = (timeMs: number | null) => {
         if (timeMs === null) return '--:--';
         const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
         const m = Math.floor(totalSeconds / 60);
