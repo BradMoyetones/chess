@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ChessApp, type BoardSnapshot } from '@chess-fw/core';
 import { io, Socket } from 'socket.io-client';
 import { useNavigate } from 'react-router';

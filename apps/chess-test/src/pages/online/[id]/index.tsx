@@ -8,6 +8,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Copy } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
+import { useChessAudio } from '@/hooks/use-chess-audio';
 
 export default function OnlineMatch() {
     const { id: urlRoomId } = useParams();
@@ -28,6 +29,9 @@ export default function OnlineMatch() {
         getMaterialAdvantage,
     } = useOnlineMatch(urlRoomId);
 
+    const { playSound } = useChessAudio();
+    const lastNodeId = useRef<string | null>(null);
+
     const [boardSize, setBoardSize] = useState<number | null>(null);
     const mainRef = useRef<HTMLDivElement>(null);
 
@@ -44,6 +48,28 @@ export default function OnlineMatch() {
         observer.observe(mainRef.current);
         return () => observer.disconnect();
     }, [status]); // Only observe when playing
+
+    // Audio Playback Sync
+    useEffect(() => {
+        const currentNode = app.engine.getGameTree().getCurrentNode();
+        if (currentNode.id !== lastNodeId.current) {
+            lastNodeId.current = currentNode.id;
+            const move = currentNode.move;
+            if (move && move.san) {
+                if (move.san.includes('+') || move.san.includes('#')) {
+                    playSound('moveCheck');
+                } else if (move.san.includes('x')) {
+                    playSound('capture');
+                } else if (move.san === 'O-O' || move.san === 'O-O-O') {
+                    playSound('castle');
+                } else if (move.san.includes('=')) {
+                    playSound('promote');
+                } else {
+                    playSound('moveSelf');
+                }
+            }
+        }
+    }, [app, boardSnapshot, playSound]);
 
     if (status === 'lobby') {
         return <div className="h-screen flex items-center justify-center p-4"><Spinner /></div>;
