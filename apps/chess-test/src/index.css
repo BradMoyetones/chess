@@ -130,10 +130,10 @@
 }
 
 @layer utilities {
-  .board-height, .board-width {
-    /* Mantenemos la lógica responsiva pero forzamos que el tamaño sea múltiplo de 8px para evitar bordes borrosos (subpixel rendering) en la cuadrícula de 8x8 */
-    width: calc(round(down, min(100vw, 100vh - 8rem), 8px));
-    height: calc(round(down, min(100vw, 100vh - 8rem), 8px));
+  .board-square {
+    /* Toma el mínimo entre el ancho (cqw) y alto (cqh) del contenedor padre directo y lo redondea a 8px */
+    width: calc(round(down, min(100cqw, 100cqh), 8px));
+    height: calc(round(down, min(100cqw, 100cqh), 8px));
     aspect-ratio: 1 / 1;
   }
 }

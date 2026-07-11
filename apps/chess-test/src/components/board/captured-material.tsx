@@ -11,56 +11,56 @@ interface SpriteData {
 const SPRITE_MAP: Record<Color, Record<PieceSymbol, SpriteData[]>> = {
     w: {
         p: [
-            { bgX: '-36rem', bgY: '-59.4rem', w: '1.3rem', h: '1.7rem' },
-            { bgX: '-36rem', bgY: '-56.9rem', w: '2.0rem', h: '1.7rem' },
-            { bgX: '-36rem', bgY: '-54.4rem', w: '2.7rem', h: '1.7rem' },
-            { bgX: '-36rem', bgY: '-51.9rem', w: '3.4rem', h: '1.7rem' },
-            { bgX: '-36rem', bgY: '-49.4rem', w: '4.1rem', h: '1.7rem' },
-            { bgX: '-36rem', bgY: '-46.9rem', w: '4.8rem', h: '1.7rem' },
-            { bgX: '-36rem', bgY: '-44.4rem', w: '5.5rem', h: '1.7rem' },
-            { bgX: '-36rem', bgY: '-41.9rem', w: '6.2rem', h: '1.7rem' },
+            { bgX: '-36em', bgY: '-59.4em', w: '1.3em', h: '1.7em' },
+            { bgX: '-36em', bgY: '-56.9em', w: '2.0em', h: '1.7em' },
+            { bgX: '-36em', bgY: '-54.4em', w: '2.7em', h: '1.7em' },
+            { bgX: '-36em', bgY: '-51.9em', w: '3.4em', h: '1.7em' },
+            { bgX: '-36em', bgY: '-49.4em', w: '4.1em', h: '1.7em' },
+            { bgX: '-36em', bgY: '-46.9em', w: '4.8em', h: '1.7em' },
+            { bgX: '-36em', bgY: '-44.4em', w: '5.5em', h: '1.7em' },
+            { bgX: '-36em', bgY: '-41.9em', w: '6.2em', h: '1.7em' },
         ],
         n: [
-            { bgX: '-45.4rem', bgY: '-44.2rem', w: '1.6rem', h: '1.9rem' },
-            { bgX: '-45.4rem', bgY: '-41.7rem', w: '2.3rem', h: '1.9rem' },
+            { bgX: '-45.4em', bgY: '-44.2em', w: '1.6em', h: '1.9em' },
+            { bgX: '-45.4em', bgY: '-41.7em', w: '2.3em', h: '1.9em' },
         ],
         b: [
-            { bgX: '-42.7rem', bgY: '-44.3rem', w: '1.5rem', h: '1.8rem' },
-            { bgX: '-42.7rem', bgY: '-41.7rem', w: '2.3rem', h: '1.9rem' },
+            { bgX: '-42.7em', bgY: '-44.2em', w: '1.5em', h: '1.9em' },
+            { bgX: '-42.7em', bgY: '-41.7em', w: '2.3em', h: '1.9em' },
         ],
         r: [
-            { bgX: '-48rem', bgY: '-44.4rem', w: '1.5rem', h: '1.7rem' },
-            { bgX: '-48rem', bgY: '-41.9rem', w: '2.3rem', h: '1.7rem' },
+            { bgX: '-48em', bgY: '-44.4em', w: '1.5em', h: '1.7em' },
+            { bgX: '-48em', bgY: '-41.9em', w: '2.3em', h: '1.7em' },
         ],
         q: [
-            { bgX: '-50.4rem', bgY: '-41.7rem', w: '2.3rem', h: '1.9rem' },
+            { bgX: '-50.4em', bgY: '-41.7em', w: '2.3em', h: '1.9em' },
         ]
     },
     b: {
         p: [
-            { bgX: '0', bgY: '-59.4rem', w: '1.3rem', h: '1.7rem' },
-            { bgX: '0', bgY: '-56.9rem', w: '2.0rem', h: '1.7rem' },
-            { bgX: '0', bgY: '-54.4rem', w: '2.7rem', h: '1.7rem' },
-            { bgX: '0', bgY: '-51.9rem', w: '3.4rem', h: '1.7rem' },
-            { bgX: '0', bgY: '-49.4rem', w: '4.1rem', h: '1.7rem' },
-            { bgX: '0', bgY: '-46.9rem', w: '4.8rem', h: '1.7rem' },
-            { bgX: '0', bgY: '-44.4rem', w: '5.5rem', h: '1.7rem' },
-            { bgX: '0', bgY: '-41.9rem', w: '6.2rem', h: '1.7rem' },
+            { bgX: '0', bgY: '-59.4em', w: '1.3em', h: '1.7em' },
+            { bgX: '0', bgY: '-56.9em', w: '2.0em', h: '1.7em' },
+            { bgX: '0', bgY: '-54.4em', w: '2.7em', h: '1.7em' },
+            { bgX: '0', bgY: '-51.9em', w: '3.4em', h: '1.7em' },
+            { bgX: '0', bgY: '-49.4em', w: '4.1em', h: '1.7em' },
+            { bgX: '0', bgY: '-46.9em', w: '4.8em', h: '1.7em' },
+            { bgX: '0', bgY: '-44.4em', w: '5.5em', h: '1.7em' },
+            { bgX: '0', bgY: '-41.9em', w: '6.2em', h: '1.7em' },
         ],
         n: [
-            { bgX: '-9.5rem', bgY: '-44.2rem', w: '1.6rem', h: '1.9rem' },
-            { bgX: '-9.5rem', bgY: '-41.7rem', w: '2.3rem', h: '1.9rem' },
+            { bgX: '-9.5em', bgY: '-44.2em', w: '1.6em', h: '1.9em' },
+            { bgX: '-9.5em', bgY: '-41.7em', w: '2.3em', h: '1.9em' },
         ],
         b: [
-            { bgX: '-6.7rem', bgY: '-44.3rem', w: '1.5rem', h: '1.8rem' },
-            { bgX: '-6.7rem', bgY: '-41.7rem', w: '2.3rem', h: '1.9rem' },
+            { bgX: '-6.7em', bgY: '-44.2em', w: '1.5em', h: '1.9em' },
+            { bgX: '-6.7em', bgY: '-41.7em', w: '2.3em', h: '1.9em' },
         ],
         r: [
-            { bgX: '-12rem', bgY: '-44.4rem', w: '1.5rem', h: '1.7rem' },
-            { bgX: '-12rem', bgY: '-41.9rem', w: '2.3rem', h: '1.7rem' },
+            { bgX: '-12em', bgY: '-44.4em', w: '1.5em', h: '1.7em' },
+            { bgX: '-12em', bgY: '-41.9em', w: '2.3em', h: '1.7em' },
         ],
         q: [
-            { bgX: '-14.5rem', bgY: '-41.7rem', w: '2.3rem', h: '1.9rem' },
+            { bgX: '-14.5em', bgY: '-41.7em', w: '2.3em', h: '1.9em' },
         ]
     }
 };
@@ -84,7 +84,7 @@ export function CapturedMaterial({ pieces, color, score }: CapturedMaterialProps
     const order: PieceSymbol[] = ['p', 'n', 'b', 'r', 'q'];
 
     return (
-        <div className="flex items-center gap-1 scale-[0.85] origin-left min-h-[20px]">
+        <div className="flex items-center gap-1 min-h-[20px]" style={{ fontSize: '10px' }}>
             {order.map(pieceType => {
                 const count = counts[pieceType];
                 if (count === 0) return null;
@@ -107,7 +107,7 @@ export function CapturedMaterial({ pieces, color, score }: CapturedMaterialProps
                                 width: sprite.w,
                                 height: sprite.h,
                                 backgroundRepeat: "no-repeat",
-                                backgroundSize: "68.3rem 61.1rem"
+                                backgroundSize: "68.3em 61.1em"
                             }}
                         />
                     );
@@ -118,7 +118,7 @@ export function CapturedMaterial({ pieces, color, score }: CapturedMaterialProps
             })}
             
             {score > 0 && (
-                <span className="text-base font-bold text-muted-foreground ml-1">
+                <span className="text-xs font-bold text-muted-foreground ml-1">
                     +{score}
                 </span>
             )}

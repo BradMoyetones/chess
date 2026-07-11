@@ -856,9 +856,10 @@ export default function OnlinePlay() {
                 </header>
 
                 {/* Tablero (Centro) */}
-                <main className="flex-1 min-h-0 w-full flex items-center justify-center p-0 relative">
-                    <div
-                        className="board-height board-width contain-layout relative"
+                <main className="flex-1 min-h-0 w-full relative">
+                    <div className="w-full h-full flex items-center justify-center" style={{ containerType: 'size' }}>
+                        <div
+                            className="board-square contain-layout relative"
                         onContextMenu={(e) => e.preventDefault()}
                         onMouseDown={handleBoardMouseDown}
                     >
@@ -974,6 +975,7 @@ export default function OnlinePlay() {
                             flipped={playerColor === 'b'}
                         />
                     </div>
+                    </div>
                 </main>
 
                 {/* Local Player (Footer) */}
@@ -981,7 +983,7 @@ export default function OnlinePlay() {
                     {renderPlayerInfo(local, localColor, false)}
                 </footer>
             </div>
-            <Card className="hidden lg:flex flex-col w-[400px] h-screen">
+            <Card className="hidden lg:flex w-[400px] h-screen">
                 <CardHeader>
                     <CardTitle>History</CardTitle>
                 </CardHeader>
