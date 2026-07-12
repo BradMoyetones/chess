@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
-    "@chess-fw/core": "workspace:*",
+    "@chess-fw/core": "^2.0.0",
     "@fontsource-variable/geist": "^5.2.9",
     "@tailwindcss/vite": "^4.3.2",
     "chess.js": "^1.4.0",

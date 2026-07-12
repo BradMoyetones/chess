@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChessApp, type BoardSnapshot } from '@chess-fw/core';
 import { io, Socket } from 'socket.io-client';
 import { useNavigate } from 'react-router';
@@ -17,6 +17,13 @@ export function useOnlineMatch(urlRoomId?: string) {
     const [selectedTimeCategory, setSelectedTimeCategory] = useState<'none' | 'bullet' | 'blitz' | 'rapid'>('none');
     const [selectedTime, setSelectedTime] = useState<{ initial: number, increment: number } | null>(null);
     const [selectedColor, setSelectedColor] = useState<'w' | 'b' | 'random'>('random');
+
+    // Latest-value refs so the socket effect does not re-run (and reconnect)
+    // on every keystroke while typing the player name in the lobby.
+    const playerNameRef = useRef(playerName);
+    const playerAvatarRef = useRef(playerAvatar);
+    playerNameRef.current = playerName;
+    playerAvatarRef.current = playerAvatar;
 
     // Server Sync
     const [serverPlayers, setServerPlayers] = useState<{ host: any, guest: any } | null>(null);
@@ -133,7 +140,7 @@ export function useOnlineMatch(urlRoomId?: string) {
         });
 
         if (urlRoomId) {
-            newSocket.emit('join_room', { roomId: urlRoomId, playerId, playerName, playerAvatar }, (res: any) => {
+            newSocket.emit('join_room', { roomId: urlRoomId, playerId, playerName: playerNameRef.current, playerAvatar: playerAvatarRef.current }, (res: any) => {
                 if (res.success) {
                     setRoomId(res.roomId);
                     setPlayerColor(res.color);
@@ -160,7 +167,9 @@ export function useOnlineMatch(urlRoomId?: string) {
         return () => {
             newSocket.close();
         };
-    }, [app, urlRoomId, navigate, playerId, playerName, playerAvatar]);
+        // playerName/playerAvatar are read via refs above so the socket connects
+        // once per room instead of reconnecting on every keystroke.
+    }, [app, urlRoomId, navigate, playerId]);
 
     useEffect(() => {
         if (!timeControl || status !== 'playing' || !serverPlayers) return;
