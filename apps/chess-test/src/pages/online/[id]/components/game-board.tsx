@@ -583,7 +583,7 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
                                         onMouseDown={(e) => {
                                             if (e.button === 0) safeHandleSquareClick(square.algebraic);
                                         }}
-                                        onTouchStart={(e) => {
+                                        onTouchStart={() => {
                                             safeHandleSquareClick(square.algebraic);
                                         }}
                                     />
