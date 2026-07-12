@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Copy } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { useChessAudio } from '@/hooks/use-chess-audio';
+import PGNButtonsNavigate from './components/pgn-buttons-navigate';
 
 export default function OnlineMatch() {
     const { id: urlRoomId } = useParams();
@@ -151,6 +152,7 @@ export default function OnlineMatch() {
                         timeControl={timeControl}
                     />
                 </footer>
+                <PGNButtonsNavigate app={app} setBoardSnapshot={setBoardSnapshot} />
             </div>
             {/* Desktop History Sidebar */}
             <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="desktop" />

@@ -34,8 +34,8 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant }: GameHistory
 
     if (variant === 'mobile') {
         return (
-            <div className="lg:hidden block w-full">
-                <div className="w-full rounded-md border bg-secondary/20 scrollbar-none overflow-x-auto scroll-fade-x" ref={scrollRef}>
+            <div className="lg:hidden block w-full border-b shadow-md">
+                <div className="w-full bg-background scrollbar-none overflow-x-auto scroll-fade-x" ref={scrollRef}>
                     <div className="flex w-max space-x-2 p-2 items-center h-12">
                         {mainLine.length > 1 ? mainLine.slice(1).map((node: any, i: number) => (
                             <div key={node.id} className="inline-flex items-center gap-1">
@@ -99,10 +99,10 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant }: GameHistory
             <CardFooter>
                 <div className="flex gap-2 w-full justify-center md:justify-start">
                     <Button disabled={!canUndo} onClick={() => { app.engine.undo(); setBoardSnapshot(app.getSnapshot()); }}>
-                        <ArrowLeft className="h-5 w-5" />
+                        <ArrowLeft />
                     </Button>
                     <Button disabled={!canRedo} onClick={() => { app.engine.redo(); setBoardSnapshot(app.getSnapshot()); }}>
-                        <ArrowRight className="h-5 w-5" />
+                        <ArrowRight />
                     </Button>
                 </div>
             </CardFooter>
