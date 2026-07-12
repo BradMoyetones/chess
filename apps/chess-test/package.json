@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "vite",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build": "tsc -b && vite build"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
-    "@chess-fw/core": "^2.0.0",
+    "@chess-fw/core": "workspace:*",
     "@fontsource-variable/geist": "^5.2.9",
     "@tailwindcss/vite": "^4.3.2",
     "chess.js": "^1.4.0",
