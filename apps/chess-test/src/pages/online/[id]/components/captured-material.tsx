@@ -84,7 +84,7 @@ export function CapturedMaterial({ pieces, color, score }: CapturedMaterialProps
     const order: PieceSymbol[] = ['p', 'n', 'b', 'r', 'q'];
 
     return (
-        <div className="flex items-center gap-1 min-h-[20px]" style={{ fontSize: '10px' }}>
+        <div className="flex items-end gap-1 min-h-[20px]" style={{ fontSize: '10px' }}>
             {order.map(pieceType => {
                 const count = counts[pieceType];
                 if (count === 0) return null;
