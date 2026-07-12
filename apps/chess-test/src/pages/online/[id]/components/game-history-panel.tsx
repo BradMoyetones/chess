@@ -22,14 +22,29 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant }: GameHistory
     const currentNodeId = gameTree.getCurrentNode().id;
 
     useEffect(() => {
-        const activeBtn = document.getElementById(`move-btn-${currentNodeId}`);
+        const activeBtn = document.getElementById(`move-btn-${variant}-${currentNodeId}`);
         if (activeBtn) {
             // Un pequeño timeout asegura que el render se haya completado si se redimensiona
             setTimeout(() => {
-                activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                activeBtn.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
             }, 10);
         }
-    }, [currentNodeId]);
+    }, [currentNodeId, variant]);
+
+    useEffect(() => {
+        if (play) {
+            app.engine.redo();
+            setBoardSnapshot(app.getSnapshot());
+            const interval = setInterval(() => {
+                app.engine.redo();
+                setBoardSnapshot(app.getSnapshot());
+                if (!app.engine.canRedo()) {
+                    setPlay(false);
+                }
+            }, 600);
+            return () => clearInterval(interval);
+        }
+    }, [play]);
 
     if (variant === 'mobile') {
         return (
@@ -45,7 +60,7 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant }: GameHistory
                                         </span>
                                     )}
                                     <Button
-                                        id={`move-btn-${node.id}`}
+                                        id={`move-btn-${variant}-${node.id}`}
                                         variant={currentNodeId === node.id ? 'default' : 'secondary'}
                                         size="sm"
                                         className="h-7 text-xs px-2"
@@ -92,7 +107,7 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant }: GameHistory
                                     </div>
                                     <div className="grid w-full grid-cols-2 gap-2">
                                         <Button
-                                            id={`move-btn-${pair.white.id}`}
+                                            id={`move-btn-${variant}-${pair.white.id}`}
                                             variant={currentNodeId === pair.white.id ? 'default' : 'secondary'}
                                             size="sm"
                                             onClick={() => {
@@ -105,7 +120,7 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant }: GameHistory
                                         </Button>
                                         {pair.black && (
                                             <Button
-                                                id={`move-btn-${pair.black.id}`}
+                                                id={`move-btn-${variant}-${pair.black.id}`}
                                                 variant={currentNodeId === pair.black.id ? 'default' : 'secondary'}
                                                 size="sm"
                                                 onClick={() => {
