@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { type PieceSymbol } from 'chess.js';
 import { ChessApp, type BoardSnapshot } from '@chess-fw/core';
 import { BoardAnnotations } from '@/components/board/board-annotations';
@@ -21,6 +21,87 @@ const toCoords = (algebraic: string | null) => {
     return { x, y };
 };
 
+type StablePiece = {
+    id: string;
+    type: PieceSymbol;
+    color: 'w' | 'b';
+    square: string;
+};
+
+function useChessPieces(boardSnapshot: BoardSnapshot | null) {
+    const piecesMapRef = useRef<Map<string, StablePiece>>(new Map());
+    const lastFenRef = useRef<string | null>(null);
+
+    const pieces = useMemo(() => {
+        if (!boardSnapshot) return [];
+
+        const currentFen = boardSnapshot.gameState.fen;
+        if (lastFenRef.current === currentFen) {
+            return Array.from(piecesMapRef.current.values()).sort((a, b) => a.id.localeCompare(b.id));
+        }
+        lastFenRef.current = currentFen;
+
+        const currentMap = piecesMapRef.current;
+        const nextMap = new Map<string, StablePiece>();
+        const unassignedNewPieces: { square: string; type: PieceSymbol; color: 'w'|'b' }[] = [];
+        
+        const availableOldPieces = Array.from(currentMap.values());
+
+        // Pass 1: Identify pieces that stayed in place
+        boardSnapshot.board.flat().forEach((sq) => {
+            if (sq.piece) {
+                const oldPiece = currentMap.get(sq.algebraic);
+                if (oldPiece && oldPiece.type === sq.piece.type && oldPiece.color === sq.piece.color) {
+                    nextMap.set(sq.algebraic, oldPiece);
+                    const idx = availableOldPieces.findIndex(p => p.id === oldPiece.id);
+                    if (idx !== -1) availableOldPieces.splice(idx, 1);
+                } else {
+                    unassignedNewPieces.push({
+                        square: sq.algebraic,
+                        type: sq.piece.type,
+                        color: sq.piece.color as 'w'|'b'
+                    });
+                }
+            }
+        });
+
+        // Pass 2: Assign moved/new pieces
+        unassignedNewPieces.forEach((newP) => {
+            const exactMatchIdx = availableOldPieces.findIndex(
+                p => p.type === newP.type && p.color === newP.color
+            );
+            
+            if (exactMatchIdx !== -1) {
+                const matched = availableOldPieces.splice(exactMatchIdx, 1)[0];
+                matched.square = newP.square;
+                nextMap.set(newP.square, matched);
+            } else {
+                const promotionMatchIdx = availableOldPieces.findIndex(
+                    p => p.type === 'p' && p.color === newP.color
+                );
+                if (promotionMatchIdx !== -1) {
+                    const matched = availableOldPieces.splice(promotionMatchIdx, 1)[0];
+                    matched.square = newP.square;
+                    matched.type = newP.type;
+                    nextMap.set(newP.square, matched);
+                } else {
+                    nextMap.set(newP.square, {
+                        id: `${newP.color}${newP.type}-${newP.square}-${Math.random().toString(36).substr(2, 9)}`,
+                        type: newP.type,
+                        color: newP.color,
+                        square: newP.square
+                    });
+                }
+            }
+        });
+
+        piecesMapRef.current = nextMap;
+        return Array.from(nextMap.values()).sort((a, b) => a.id.localeCompare(b.id));
+    }, [boardSnapshot]);
+
+    return pieces;
+}
+
 export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, emitMove }: GameBoardProps) {
     const handleMouseMove = useRef<(e: MouseEvent | TouchEvent) => void>(() => { });
     const handleMouseUp = useRef<(e: MouseEvent | TouchEvent) => void>(() => { });
@@ -30,12 +111,17 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
     const dropWrapper = useCallback((e: MouseEvent | TouchEvent) => handleMouseUp.current(e), []);
     const annotationDropWrapper = useCallback((e: MouseEvent) => handleAnnotationDropRef.current(e), []);
 
-    const activePiece = useRef<HTMLElement | null>(null);
-    const chessboardRef = useRef<HTMLDivElement>(null);
 
+
+    const boardContainerRef = useRef<HTMLDivElement>(null);
+    const chessboardRef = useRef<HTMLDivElement>(null);
+    const activePiece = useRef<HTMLElement | null>(null);
+    
     const originSquare = useRef<string | null>(null);
-    const originalStyle = useRef<{ left: string; top: string; zIndex: string } | null>(null);
+    const originalStyle = useRef<{ left: string; top: string; zIndex: string; transition: string } | null>(null);
     const annotationStartSquare = useRef<string | null>(null);
+
+    const stablePieces = useChessPieces(boardSnapshot);
 
     const [pendingPromotion, setPendingPromotion] = useState<{
         from: string;
@@ -168,10 +254,21 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
             }
         } finally {
             setHoverSquare(null);
+            
+            if (boardContainerRef.current) {
+                boardContainerRef.current.classList.add('instant-snap');
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        boardContainerRef.current?.classList.remove('instant-snap');
+                    });
+                });
+            }
+
             if (originalStyle.current && activePiece.current) {
                 activePiece.current.style.zIndex = originalStyle.current.zIndex;
                 activePiece.current.style.left = originalStyle.current.left;
                 activePiece.current.style.top = originalStyle.current.top;
+                activePiece.current.style.transition = originalStyle.current.transition;
             }
             activePiece.current = null;
             originSquare.current = null;
@@ -319,6 +416,7 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
                 left: element.style.left,
                 top: element.style.top,
                 zIndex: element.style.zIndex,
+                transition: element.style.transition,
             };
 
             const boardRect = chessboard.getBoundingClientRect();
@@ -331,6 +429,7 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
             const x = clientX - boardRect.left - pieceSize / 2;
             const y = clientY - boardRect.top - pieceSize / 2;
 
+            element.style.transition = 'none';
             element.style.zIndex = '100';
             element.style.left = `${x}px`;
             element.style.top = `${y}px`;
@@ -391,10 +490,16 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
 
     return (
         <div className="w-full h-full flex items-center justify-center" style={{ containerType: 'size' }}>
+            <style>{`
+                .instant-snap .board-piece {
+                    transition: none !important;
+                }
+            `}</style>
             <div
                 className="board-square contain-layout relative"
                 onContextMenu={(e) => e.preventDefault()}
                 onMouseDown={handleBoardMouseDown}
+                ref={boardContainerRef}
             >
                 <div
                     className="inset-0 absolute bg-cover bg-center select-none rounded-sm overflow-hidden"
@@ -469,45 +574,63 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
                                 return (
                                     <div
                                         key={`sq-int-${square.algebraic}`}
-                                        className="absolute w-[12.5%] h-[12.5%] flex items-center justify-center cursor-pointer pointer-events-auto z-25"
+                                        className="absolute w-[12.5%] h-[12.5%] flex items-center justify-center cursor-pointer pointer-events-auto z-10"
                                         style={{
                                             top: `${renderRow * 12.5}%`,
                                             left: `${renderCol * 12.5}%`,
                                             touchAction: 'none'
                                         }}
                                         onMouseDown={(e) => {
-                                            if (e.button === 0) {
-                                                safeHandleSquareClick(square.algebraic);
-                                                if (square.piece) {
-                                                    const isHint = square.isValidDestination && isSelectedTurn;
-                                                    if (!isHint) grabPiece(e, square.algebraic);
-                                                }
-                                            }
+                                            if (e.button === 0) safeHandleSquareClick(square.algebraic);
                                         }}
                                         onTouchStart={(e) => {
                                             safeHandleSquareClick(square.algebraic);
-                                            if (square.piece) {
-                                                const isHint = square.isValidDestination && isSelectedTurn;
-                                                if (!isHint) grabPiece(e, square.algebraic);
-                                            }
                                         }}
-                                    >
-                                        {square.piece && (
-                                            <img
-                                                src={
-                                                    theme.pieces[
-                                                    square.piece.type as keyof typeof theme.pieces
-                                                    ][square.piece.color]
-                                                }
-                                                alt={square.piece.type}
-                                                className={`w-full h-full object-contain pointer-events-none relative`}
-                                                data-square={square.algebraic}
-                                            />
-                                        )}
-                                    </div>
+                                    />
                                 );
                             })
                         )}
+
+                    {stablePieces.map((piece) => {
+                        const coords = toCoords(piece.square);
+                        if (!coords) return null;
+                        const renderRow = playerColor === 'b' ? 7 - coords.y : coords.y;
+                        const renderCol = playerColor === 'b' ? 7 - coords.x : coords.x;
+
+                        return (
+                            <div
+                                key={piece.id}
+                                className="board-piece absolute w-[12.5%] h-[12.5%] flex items-center justify-center cursor-pointer pointer-events-auto z-20"
+                                style={{
+                                    top: `${renderRow * 12.5}%`,
+                                    left: `${renderCol * 12.5}%`,
+                                    transition: 'top 0.2s ease-in-out, left 0.2s ease-in-out',
+                                    touchAction: 'none'
+                                }}
+                                onMouseDown={(e) => {
+                                    if (e.button === 0) {
+                                        safeHandleSquareClick(piece.square);
+                                        const sqData = boardSnapshot?.board.flat().find(s => s.algebraic === piece.square);
+                                        const isHint = sqData?.isValidDestination && isSelectedTurn;
+                                        if (!isHint) grabPiece(e, piece.square);
+                                    }
+                                }}
+                                onTouchStart={(e) => {
+                                    safeHandleSquareClick(piece.square);
+                                    const sqData = boardSnapshot?.board.flat().find(s => s.algebraic === piece.square);
+                                    const isHint = sqData?.isValidDestination && isSelectedTurn;
+                                    if (!isHint) grabPiece(e, piece.square);
+                                }}
+                            >
+                                <img
+                                    src={theme.pieces[piece.type][piece.color]}
+                                    alt={piece.type}
+                                    className="w-full h-full object-contain pointer-events-none relative"
+                                    data-square={piece.square}
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
                 <Coordinates
                     className="pointer-events-none z-30 relative"
