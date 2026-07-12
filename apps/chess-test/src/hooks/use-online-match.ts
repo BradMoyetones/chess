@@ -92,7 +92,7 @@ export function useOnlineMatch(urlRoomId?: string) {
     }, [app, emitMove, playerColor]);
 
     useEffect(() => {
-        const newSocket = io('http://192.168.68.103:3001');
+        const newSocket = io(import.meta.env.VITE_WS_URL);
         setSocket(newSocket);
 
         newSocket.on('opponent_joined', (data) => {
