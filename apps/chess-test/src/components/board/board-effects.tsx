@@ -169,7 +169,16 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
                     'text-white': type === 'mate-white' || type === 'winner',
                     'text-black': type === 'mate-black',
                 })}
-                variants={iconVariants}
+                variants={{
+                    ...iconVariants,
+                    animate: {
+                        ...iconVariants.animate,
+                        // Tuck top if on the top edge
+                        y: y === 0 ? "0%" : "-45%",
+                        // Tuck left if on the right edge
+                        x: x === 7 ? "-100%" : "-65%",
+                    }
+                }}
             >
                 {type === 'winner' && <WinnerIcon />}
                 {type === 'mate-white' && <CheckmateIconWhite />}
