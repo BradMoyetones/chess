@@ -121,8 +121,8 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
     const bgColor = type === 'winner' ? '#83b84f' : '#e02828';
     const isTimeout = type.startsWith('timeout');
 
-    const targetX = x === 7 ? "-100%" : "-65%";
-    const targetY = y === 0 ? "0%" : "-45%";
+    const targetX = x === 7 ? "-100%" : "-50%";
+    const targetY = y === 0 ? "0%" : "-50%";
     const targetLeft = x === 7 ? "100%" : "100%";
     const targetTop = y === 0 ? "0%" : "0%";
 
@@ -158,8 +158,8 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
                     {/* Badge Initial State */}
                     <motion.div 
                         layoutId={`badge-${type}`}
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={{ opacity: 0, y: `calc(${targetY} + 15px)`, x: targetX }}
+                        animate={{ opacity: 1, y: targetY, x: targetX }}
                         transition={{ duration: 0.3, ease: "easeOut" }}
                         className="absolute z-10 flex items-center shadow-lg px-2 overflow-hidden"
                         style={{
@@ -167,8 +167,6 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
                             borderRadius: '9999px',
                             top: targetTop,
                             left: targetLeft,
-                            x: targetX,
-                            y: targetY,
                             height: '32px'
                         }}
                     >
@@ -183,20 +181,18 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
                     {/* SVG Initial State */}
                     <motion.div
                         layoutId={`icon-${type}`}
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
+                        initial={{ scale: 0, x: "-50%", y: "-50%" }}
+                        animate={{ scale: 1, x: "-50%", y: "-50%" }}
                         transition={{ type: 'spring', bounce: 0.4 }}
                         className={cn('absolute flex items-center justify-center z-20', {
                             'text-white': type === 'mate-white' || type === 'winner' || type === 'timeout-white' || type === 'timeout-black',
                             'text-black': type === 'mate-black',
                         })}
                         style={{
-                            width: '70%',
-                            height: '70%',
+                            width: '65%',
+                            height: '65%',
                             top: '50%',
-                            left: '50%',
-                            x: '-50%',
-                            y: '-50%'
+                            left: '50%'
                         }}
                     >
                         {type === 'winner' && <WinnerIcon />}
@@ -211,13 +207,13 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
                     <motion.div
                         layoutId={`badge-${type}`}
                         className="absolute z-30 shadow-md"
+                        initial={{ x: targetX, y: targetY }}
+                        animate={{ x: targetX, y: targetY }}
                         style={{
                             backgroundColor: bgColor,
                             borderRadius: '9999px',
                             top: targetTop,
                             left: targetLeft,
-                            x: targetX,
-                            y: targetY,
                             width: '40%',
                             height: '40%'
                         }}
@@ -230,11 +226,11 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
                             'text-white': type === 'mate-white' || type === 'winner' || type === 'timeout-white' || type === 'timeout-black',
                             'text-black': type === 'mate-black',
                         })}
+                        initial={{ x: targetX, y: targetY }}
+                        animate={{ x: targetX, y: targetY }}
                         style={{
                             top: targetTop,
                             left: targetLeft,
-                            x: targetX,
-                            y: targetY,
                             width: '40%',
                             height: '40%'
                         }}
