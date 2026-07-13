@@ -139,6 +139,8 @@ export function useBotMatch() {
         botPlayer: botConfig,
         startGame,
         endGame,
-        emitMove
+        emitMove,
+
+        isBotThinking
     };
 }
