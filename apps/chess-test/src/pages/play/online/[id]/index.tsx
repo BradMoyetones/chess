@@ -146,6 +146,8 @@ export default function OnlineMatch() {
                         setBoardSnapshot={setBoardSnapshot}
                         playerColor={playerColor}
                         emitMove={emitMove}
+                        whiteTime={localWhiteTime}
+                        blackTime={localBlackTime}
                     />
                 </main>
 

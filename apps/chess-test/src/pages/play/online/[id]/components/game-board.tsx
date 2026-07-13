@@ -13,6 +13,8 @@ interface GameBoardProps {
     setBoardSnapshot: (snapshot: any) => void;
     playerColor: 'w' | 'b';
     emitMove: (moveData: any) => void;
+    whiteTime?: number | null;
+    blackTime?: number | null;
 }
 
 const toCoords = (algebraic: string | null) => {
@@ -103,7 +105,15 @@ function useChessPieces(boardSnapshot: BoardSnapshot | null) {
     return pieces;
 }
 
-export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, emitMove }: GameBoardProps) {
+export function GameBoard({
+    app,
+    boardSnapshot,
+    setBoardSnapshot,
+    playerColor,
+    emitMove,
+    whiteTime,
+    blackTime
+}: GameBoardProps) {
     const handleMouseMove = useRef<(e: MouseEvent | TouchEvent) => void>(() => { });
     const handleMouseUp = useRef<(e: MouseEvent | TouchEvent) => void>(() => { });
     const handleAnnotationDropRef = useRef<(e: MouseEvent) => void>(() => { });
@@ -532,7 +542,9 @@ export function GameBoard({ app, boardSnapshot, setBoardSnapshot, playerColor, e
                     <BoardEffects 
                         app={app} 
                         boardSnapshot={boardSnapshot} 
-                        flipped={playerColor === 'b'} 
+                        flipped={playerColor === 'b'}
+                        whiteTime={whiteTime}
+                        blackTime={blackTime}
                     />
 
                     {pendingPromotion && (

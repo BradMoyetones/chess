@@ -265,6 +265,8 @@ export default function ComputerMatch() {
                         setBoardSnapshot={setBoardSnapshot}
                         playerColor={playerColor}
                         emitMove={emitMove}
+                        whiteTime={localWhiteTime}
+                        blackTime={localBlackTime}
                     />
                 </main>
 
