@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
+import { useState, useEffect } from 'react';
 
 const CheckmateIconWhite = (props: React.SVGProps<SVGSVGElement>) => (
     <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="currentColor" className={cn('w-full h-full drop-shadow-md', props.className)} viewBox="0 0 18 19">
@@ -109,6 +110,13 @@ export function BoardEffects({ app, boardSnapshot, flipped, whiteTime, blackTime
 }
 
 function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mate-white' | 'mate-black' | 'winner' | 'timeout-white' | 'timeout-black' }) {
+    const [phase, setPhase] = useState<'initial' | 'merged'>('initial');
+
+    useEffect(() => {
+        const t = setTimeout(() => setPhase('merged'), 700);
+        return () => clearTimeout(t);
+    }, []);
+
     const squareSize = 100 / 8; // 12.5%
     const bgColor = type === 'winner' ? '#83b84f' : '#e02828';
     const isTimeout = type.startsWith('timeout');
@@ -118,68 +126,6 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
     const targetLeft = x === 7 ? "100%" : "100%";
     const targetTop = y === 0 ? "0%" : "0%";
 
-    const parentVariants = {
-        initial: {},
-        animate: {},
-    };
-
-    const bgVariants = {
-        initial: { opacity: 0 },
-        animate: {
-            opacity: [0, 0.8, 0.8, 0], // fades in quickly, stays, fades out
-            transition: { 
-                times: [0, 0.1, 0.6, 1], // up to 0.7s it stays (63%), then fades out
-                duration: 1.1,
-                ease: 'easeOut' as const
-            },
-        },
-    };
-
-    const iconVariants = {
-        initial: {
-            width: '70%',
-            height: '70%',
-            x: '-50%',
-            y: '-50%',
-            top: '50%',
-            left: '50%',
-            scale: 0,
-            backgroundColor: 'rgba(0,0,0,0)',
-        },
-        animate: {
-            scale: [0, 1, 1, 1],
-            width: ['70%', '70%', '70%', '40%'],
-            height: ['70%', '70%', '70%', '40%'],
-            x: ['-50%', '-50%', '-50%', targetX],
-            y: ['-50%', '-50%', '-50%', targetY],
-            top: ['50%', '50%', '50%', targetTop],
-            left: ['50%', '50%', '50%', targetLeft],
-            backgroundColor: ['rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', bgColor],
-            transition: { 
-                times: [0, 0.2, 0.63, 1], // 0.2 is pop, 0.63 is ~0.7s mark where it starts moving
-                duration: 1.1, 
-                ease: 'easeInOut' as const
-            },
-        },
-    };
-
-    const badgeVariants = {
-        initial: { 
-            opacity: 0,
-            x: targetX,
-            y: targetY,
-            top: targetTop,
-            left: targetLeft,
-        },
-        animate: {
-            opacity: 1,
-            transition: { 
-                duration: 0.3,
-                ease: 'easeInOut' as const
-            }
-        }
-    };
-
     const getLabel = () => {
         if (type === 'winner') return 'Winner';
         if (isTimeout) return 'Timeout';
@@ -187,11 +133,7 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
     };
 
     return (
-        <motion.div
-            key={type}
-            variants={parentVariants}
-            initial="initial"
-            animate="animate"
+        <div
             className="absolute"
             style={{
                 width: `${squareSize}%`,
@@ -200,35 +142,111 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
                 top: `${y * squareSize}%`,
             }}
         >
-            {/* Fondo traslúcido de casilla completa */}
-            <motion.div className="absolute inset-0" style={{ backgroundColor: bgColor }} variants={bgVariants} />
+            {/* Fondo translúcido */}
+            {phase === 'initial' && (
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.8 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute inset-0" 
+                    style={{ backgroundColor: bgColor }} 
+                />
+            )}
 
-            {/* Badge de texto animado (Cápsula Blanca que aparece y se contrae) */}
-            <motion.div 
-                className="absolute z-10 flex items-center bg-white rounded-full overflow-hidden shadow-lg origin-left"
-                variants={badgeVariants}
-            >
-                <span className={cn('text-lg font-bold uppercase whitespace-nowrap px-2', {
-                    'text-[#83b84f]': type === 'winner',
-                    'text-[#e02828]': type !== 'winner',
-                })}>
-                    {getLabel()}
-                </span>
-            </motion.div>
+            {phase === 'initial' ? (
+                <>
+                    {/* Badge Initial State */}
+                    <motion.div 
+                        layoutId={`badge-${type}`}
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className="absolute z-10 flex items-center shadow-lg px-2 overflow-hidden"
+                        style={{
+                            backgroundColor: '#ffffff',
+                            borderRadius: '9999px',
+                            top: targetTop,
+                            left: targetLeft,
+                            x: targetX,
+                            y: targetY,
+                            height: '32px'
+                        }}
+                    >
+                        <span className={cn('text-lg font-bold uppercase whitespace-nowrap', {
+                            'text-[#83b84f]': type === 'winner',
+                            'text-[#e02828]': type !== 'winner',
+                        })}>
+                            {getLabel()}
+                        </span>
+                    </motion.div>
 
-            {/* Icono animado */}
-            <motion.div
-                className={cn('absolute flex items-center justify-center z-20 rounded-full', {
-                    'text-white': type === 'mate-white' || type === 'winner' || type === 'timeout-white' || type === 'timeout-black',
-                    'text-black': type === 'mate-black',
-                })}
-                variants={iconVariants}
-            >
-                {type === 'winner' && <WinnerIcon />}
-                {type === 'mate-white' && <CheckmateIconWhite />}
-                {type === 'mate-black' && <CheckmateIconBlack />}
-                {isTimeout && <TimeoutIcon />}
-            </motion.div>
-        </motion.div>
+                    {/* SVG Initial State */}
+                    <motion.div
+                        layoutId={`icon-${type}`}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', bounce: 0.4 }}
+                        className={cn('absolute flex items-center justify-center z-20', {
+                            'text-white': type === 'mate-white' || type === 'winner' || type === 'timeout-white' || type === 'timeout-black',
+                            'text-black': type === 'mate-black',
+                        })}
+                        style={{
+                            width: '70%',
+                            height: '70%',
+                            top: '50%',
+                            left: '50%',
+                            x: '-50%',
+                            y: '-50%'
+                        }}
+                    >
+                        {type === 'winner' && <WinnerIcon />}
+                        {type === 'mate-white' && <CheckmateIconWhite />}
+                        {type === 'mate-black' && <CheckmateIconBlack />}
+                        {isTimeout && <TimeoutIcon />}
+                    </motion.div>
+                </>
+            ) : (
+                /* Merged State (Siblings to prevent nested layout scale distortion) */
+                <>
+                    <motion.div
+                        layoutId={`badge-${type}`}
+                        className="absolute z-30 shadow-md"
+                        style={{
+                            backgroundColor: bgColor,
+                            borderRadius: '9999px',
+                            top: targetTop,
+                            left: targetLeft,
+                            x: targetX,
+                            y: targetY,
+                            width: '40%',
+                            height: '40%'
+                        }}
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                    />
+                    
+                    <motion.div
+                        layoutId={`icon-${type}`}
+                        className={cn('absolute flex items-center justify-center z-40', {
+                            'text-white': type === 'mate-white' || type === 'winner' || type === 'timeout-white' || type === 'timeout-black',
+                            'text-black': type === 'mate-black',
+                        })}
+                        style={{
+                            top: targetTop,
+                            left: targetLeft,
+                            x: targetX,
+                            y: targetY,
+                            width: '40%',
+                            height: '40%'
+                        }}
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                    >
+                        {type === 'winner' && <WinnerIcon />}
+                        {type === 'mate-white' && <CheckmateIconWhite />}
+                        {type === 'mate-black' && <CheckmateIconBlack />}
+                        {isTimeout && <TimeoutIcon />}
+                    </motion.div>
+                </>
+            )}
+        </div>
     );
 }
