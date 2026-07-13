@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCoreGame } from './use-core-game';
 import type { BotConfig, TimeControl, EvaluationData } from '@/types/game';
 import type { PieceSymbol } from 'chess.js';
 
 export interface IEngineAdapter {
-    evaluate: (fen: string, depth?: number) => Promise<EvaluationData>;
+    evaluate: (fen: string, options?: BotConfig['engineOptions']) => Promise<EvaluationData>;
 }
 
 export function useBotMatch() {
@@ -22,6 +22,7 @@ export function useBotMatch() {
     const [localBlackTime, setLocalBlackTime] = useState<number | null>(null);
 
     const [isBotThinking, setIsBotThinking] = useState(false);
+    const isBotThinkingRef = useRef(false);
 
     // Initializer
     const startGame = (color: 'w' | 'b' | 'random', selectedBot: BotConfig, adapter: IEngineAdapter, tc: TimeControl | null) => {
@@ -69,7 +70,8 @@ export function useBotMatch() {
             const currentTurn = app.engine.getTurn();
             setServerTurn(currentTurn);
 
-            if (currentTurn !== playerColor && !app.engine.isGameOver() && !isBotThinking) {
+            if (currentTurn !== playerColor && !app.engine.isGameOver() && !isBotThinkingRef.current) {
+                isBotThinkingRef.current = true;
                 setIsBotThinking(true);
                 
                 try {
@@ -80,7 +82,7 @@ export function useBotMatch() {
 
                     if (!active) return;
 
-                    const evaluation = await engineAdapter.evaluate(app.engine.getFen(), botConfig.engineOptions.depth);
+                    const evaluation = await engineAdapter.evaluate(app.engine.getFen(), botConfig.engineOptions);
                     
                     if (!active) return;
 
@@ -99,6 +101,7 @@ export function useBotMatch() {
                 } catch (error) {
                     console.error("Error getting bot move:", error);
                 } finally {
+                    isBotThinkingRef.current = false;
                     if (active) setIsBotThinking(false);
                 }
             }
@@ -120,7 +123,7 @@ export function useBotMatch() {
             active = false;
             unsubs.forEach(unsub => unsub());
         };
-    }, [app, playerColor, botConfig, engineAdapter, status, setBoardSnapshot, isBotThinking]);
+    }, [app, playerColor, botConfig, engineAdapter, status]);
 
     return {
         app,

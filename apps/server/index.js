@@ -3,9 +3,23 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import crypto from 'crypto';
+import path from 'path';
+import { StockfishAdapter, EventBus } from '@chess-fw/core';
 
 const app = express();
 app.use(cors());
+
+// --- INICIALIZACIÓN DE STOCKFISH ---
+const eventBus = new EventBus();
+const stockfish = new StockfishAdapter(eventBus);
+
+await stockfish.init({
+    binaryPath: path.resolve('bin', 'stockfish.exe'),
+    defaultDepth: 15,
+    threads: 1,
+    hashSize: 16
+});
+console.log('[*] Stockfish inicializado en el servidor.');
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -24,6 +38,29 @@ function generateRoomId() {
 
 io.on('connection', (socket) => {
     console.log(`[+] Cliente conectado: ${socket.id}`);
+
+    // --- EVALUAR BOT MOVE ---
+    socket.on('evaluate_bot_move', async ({ fen, options }, callback) => {
+        try {
+            if (options && options.skillLevel !== undefined) {
+                stockfish.setOption('UCI_LimitStrength', 'true');
+                // Elo approach using skill level (0-20 mapping approx 1320-3190)
+                const elo = Math.min(3200, Math.max(1320, 1320 + options.skillLevel * 90));
+                stockfish.setOption('UCI_Elo', elo);
+                stockfish.setOption('Skill Level', options.skillLevel);
+            } else {
+                stockfish.setOption('UCI_LimitStrength', 'false');
+                stockfish.setOption('Skill Level', 20);
+            }
+            
+            const evaluation = await stockfish.evaluate(fen, options?.depth);
+            
+            if (callback) callback({ success: true, evaluation });
+        } catch (error) {
+            console.error('Error evaluando move:', error);
+            if (callback) callback({ success: false, error: error.message });
+        }
+    });
 
     // --- CREAR SALA ---
     socket.on('create_room', ({ hostColor, timeControl, playerName, playerAvatar, playerId }, callback) => {

@@ -10,20 +10,28 @@ import { GameBoard } from '../online/[id]/components/game-board';
 import { PlayerInfoBar } from '../online/[id]/components/player-info-bar';
 import { GameHistoryPanel } from '../online/[id]/components/game-history-panel';
 import PGNButtonsNavigate from '../online/[id]/components/pgn-buttons-navigate';
-
 import { useChessAudio } from '@/hooks/use-chess-audio';
-import type { Player, EvaluationData } from '@/types/game';
+import type { Player, EvaluationData, BotConfig } from '@/types/game';
+import { io } from 'socket.io-client';
 
-// Dummy adapter. Aquí se pasará el StockfishAdapter real de @chess-fw/core en el futuro.
-const dummyAdapter: IEngineAdapter = {
-    evaluate: async (fen: string, depth?: number): Promise<EvaluationData> => {
-        return new Promise(() => {
-            // Este dummy se queda colgado a propósito.
-            // El usuario debe inyectar el verdadero adaptador aquí después.
-            console.warn("Falta inyectar el StockfishAdapter real en evaluate().");
+const botSocket = io(import.meta.env.VITE_WS_URL);
+
+// Adaptador real que se comunica con el servidor vía WebSockets
+const socketEngineAdapter: IEngineAdapter = {
+    evaluate: async (fen: string, options?: BotConfig['engineOptions']): Promise<EvaluationData> => {
+        return new Promise((resolve, reject) => {
+            botSocket.emit('evaluate_bot_move', { fen, options }, (response: any) => {
+                if (response.success) {
+                    resolve(response.evaluation);
+                } else {
+                    reject(new Error(response.error));
+                }
+            });
         });
     }
 };
+
+
 
 export default function ComputerMatch() {
     const {
@@ -104,7 +112,7 @@ export default function ComputerMatch() {
                                 <LobbyBoard />
                             </div>
                         </div>
-                        <BotLobbyPanel onPlay={(color, bot, tc) => startGame(color, bot, dummyAdapter, tc)} />
+                        <BotLobbyPanel onPlay={(color, bot, tc) => startGame(color, bot, socketEngineAdapter, tc)} />
                     </main>
                 </div>
             </div>
