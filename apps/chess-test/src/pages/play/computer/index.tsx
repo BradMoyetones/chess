@@ -136,11 +136,19 @@ export default function ComputerMatch() {
     const localColor = playerColor;
     const opponentColor = playerColor === 'w' ? 'b' : 'w';
 
+    const getBestMove = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    const restoreMove = () => {
+        
+    }
+
     return (
         <div className='flex bg-muted'>
             <div className="h-screen w-screen flex flex-col overflow-hidden">
                 {/* Mobile History (Horizontal) */}
-                <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="mobile" />
+                <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="mobile" onBestMove={getBestMove} onRestoreMove={restoreMove} />
 
                 {/* Oponente (Header) */}
                 <header
@@ -185,7 +193,7 @@ export default function ComputerMatch() {
                 <PGNButtonsNavigate app={app} setBoardSnapshot={setBoardSnapshot} />
             </div>
             {/* Desktop History Sidebar */}
-            <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="desktop" />
+            <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="desktop" onBestMove={getBestMove} onRestoreMove={restoreMove}   />
         </div>
     );
 }

@@ -1,19 +1,23 @@
 import { useRef, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Lightbulb, Pause, Play, Undo2 } from 'lucide-react';
 import { ChessApp } from '@chess-fw/core';
+import { Spinner } from '@/components/ui/spinner';
 
 interface GameHistoryPanelProps {
     app: ChessApp;
     setBoardSnapshot: (snapshot: any) => void;
     variant: 'mobile' | 'desktop';
+    onRestoreMove?: () => void;
+    onBestMove?: () => Promise<void>;
 }
 
-export function GameHistoryPanel({ app, setBoardSnapshot, variant }: GameHistoryPanelProps) {
+export function GameHistoryPanel({ app, setBoardSnapshot, variant, onRestoreMove, onBestMove }: GameHistoryPanelProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const scrollRefPc = useRef<HTMLDivElement>(null);
     const [play, setPlay] = useState(false);
+    const [loadingBestMove, setLoadingBestMove] = useState(false);
 
     const canUndo = app.engine.canUndo();
     const canRedo = app.engine.canRedo();
@@ -45,6 +49,14 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant }: GameHistory
             return () => clearInterval(interval);
         }
     }, [play]);
+
+    const handleBestMove = async () => {
+        if (onBestMove) {
+            setLoadingBestMove(true);
+            await onBestMove();
+            setLoadingBestMove(false);
+        }
+    }
 
     if (variant === 'mobile') {
         return (
@@ -140,7 +152,32 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant }: GameHistory
                     )}
                 </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className='flex-col gap-2'>
+                <div className='flex w-full gap-2'>
+                    {onRestoreMove && (
+                        <Button
+                            variant="outline"
+                            onClick={onRestoreMove}
+                            className="flex-1"
+                        >
+                            <Undo2 />
+                        </Button>
+                    )}
+                    {onBestMove && (
+                        <Button
+                            variant="outline"
+                            onClick={handleBestMove}
+                            className="flex-1"
+                            disabled={loadingBestMove}
+                        >
+                            {loadingBestMove ? (
+                                <Spinner />
+                            ) : (
+                                <Lightbulb />
+                            )}
+                        </Button>
+                    )}
+                </div>
                 <div className="flex gap-2 w-full justify-center md:justify-start">
                     <Button
                         variant="outline"
