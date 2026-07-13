@@ -70,7 +70,7 @@ export function useBotMatch() {
             const currentTurn = app.engine.getTurn();
             setServerTurn(currentTurn);
 
-            if (currentTurn !== playerColor && !app.engine.isGameOver() && !isBotThinkingRef.current) {
+            if (currentTurn !== playerColor && !app.engine.isGameOver() && !isBotThinkingRef.current && !app.engine.canRedo()) {
                 isBotThinkingRef.current = true;
                 setIsBotThinking(true);
                 
