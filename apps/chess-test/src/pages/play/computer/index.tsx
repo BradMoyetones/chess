@@ -56,6 +56,15 @@ export default function ComputerMatch() {
     const [boardSize, setBoardSize] = useState<number | null>(null);
     const mainRef = useRef<HTMLDivElement>(null);
 
+    type HintState = {
+        fen: string;
+        from: string;
+        to: string;
+        step: 1 | 2;
+    } | null;
+    const [hintState, setHintState] = useState<HintState>(null);
+    const hintColor = 'rgba(82, 176, 220, 0.8)';
+
     useEffect(() => {
         if (status !== 'playing' || !mainRef.current) return;
         const observer = new ResizeObserver((entries) => {
@@ -92,6 +101,14 @@ export default function ComputerMatch() {
             }
         }
     }, [app, boardSnapshot, playSound, status]);
+
+    useEffect(() => {
+        if (hintState && hintState.fen !== app.engine.getFen()) {
+            setHintState(null);
+            app.annotations.clearAll();
+            setBoardSnapshot(app.getSnapshot());
+        }
+    }, [boardSnapshot, hintState, app, setBoardSnapshot]);
 
     if (status === 'lobby') {
         return (
@@ -137,8 +154,38 @@ export default function ComputerMatch() {
     const opponentColor = playerColor === 'w' ? 'b' : 'w';
 
     const getBestMove = async () => {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
+        const currentFen = app.engine.getFen();
+
+        if (hintState && hintState.fen === currentFen) {
+            if (hintState.step === 1) {
+                app.annotations.addArrow(hintState.from, hintState.to);
+                setHintState({ ...hintState, step: 2 });
+                setBoardSnapshot(app.getSnapshot());
+            }
+            return;
+        }
+
+        // Fetch new hint
+        setHintState(null);
+        app.annotations.clearAll();
+        
+        try {
+            // Evaluamos con un nivel alto para asegurar una buena pista
+            const evaluation = await socketEngineAdapter.evaluate(currentFen, { skillLevel: 20, depth: 15 });
+            if (evaluation.bestMove) {
+                const from = evaluation.bestMove.substring(0, 2);
+                const to = evaluation.bestMove.substring(2, 4);
+                
+                app.annotations.addHighlight(from, hintColor);
+                setHintState({ fen: currentFen, from, to, step: 1 });
+                setBoardSnapshot(app.getSnapshot());
+            }
+        } catch (error) {
+            console.error("Failed to fetch hint:", error);
+        }
+    };
+
+
 
     const restoreMove = () => {
         
