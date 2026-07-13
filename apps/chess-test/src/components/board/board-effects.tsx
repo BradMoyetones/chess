@@ -121,8 +121,8 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
     const bgColor = type === 'winner' ? '#83b84f' : '#e02828';
     const isTimeout = type.startsWith('timeout');
 
-    const targetX = x === 7 ? "-100%" : "-50%";
-    const targetY = y === 0 ? "0%" : "-50%";
+    const targetX = x === 7 ? "-100%" : "-55%";
+    const targetY = y === 0 ? "0%" : "-45%";
     const targetLeft = x === 7 ? "100%" : "100%";
     const targetTop = y === 0 ? "0%" : "0%";
 
