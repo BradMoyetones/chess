@@ -58,9 +58,54 @@ export function useBotMatch() {
     const emitMove = useCallback((_moveData: any) => {
         // dummy function for the UI component (GameBoard)
         // the GameBoard calls this when user makes a move
-        const currentTurn = app.engine.getTurn();
-        setServerTurn(currentTurn);
+        const mainLine = app.engine.getGameTree().getMainLine();
+        const lastNode = mainLine[mainLine.length - 1];
+        setServerTurn(lastNode.fen.split(' ')[1] as 'w' | 'b');
     }, [app]);
+
+    useEffect(() => {
+        if (status !== 'playing' || !timeControl) return;
+
+        let lastTick = Date.now();
+        const intervalId = setInterval(() => {
+            const now = Date.now();
+            const delta = now - lastTick;
+            lastTick = now;
+
+            if (app.engine.isGameOver() && !app.engine.canRedo()) {
+                setStatus('game_over');
+                return;
+            }
+
+            const mainLine = app.engine.getGameTree().getMainLine();
+            const lastNode = mainLine[mainLine.length - 1];
+            const realTurn = lastNode.fen.split(' ')[1] as 'w' | 'b';
+
+            if (realTurn === 'w') {
+                setLocalWhiteTime(prev => {
+                    if (prev === null) return null;
+                    const next = prev - delta;
+                    if (next <= 0) {
+                        setStatus('game_over');
+                        return 0;
+                    }
+                    return next;
+                });
+            } else {
+                setLocalBlackTime(prev => {
+                    if (prev === null) return null;
+                    const next = prev - delta;
+                    if (next <= 0) {
+                        setStatus('game_over');
+                        return 0;
+                    }
+                    return next;
+                });
+            }
+        }, 100);
+
+        return () => clearInterval(intervalId);
+    }, [status, timeControl, app]);
 
     useEffect(() => {
         if (status !== 'playing' || !botConfig || !engineAdapter) return;
@@ -68,13 +113,19 @@ export function useBotMatch() {
         let active = true;
 
         const checkBotTurn = async () => {
-            const currentTurn = app.engine.getTurn();
-            setServerTurn(currentTurn);
+            const mainLine = app.engine.getGameTree().getMainLine();
+            const lastNode = mainLine[mainLine.length - 1];
+            const realTurn = lastNode.fen.split(' ')[1] as 'w' | 'b';
+            
+            setServerTurn(realTurn);
 
-            if (currentTurn !== playerColor && !app.engine.isGameOver() && !isBotThinkingRef.current && !app.engine.canRedo()) {
+            if (realTurn !== playerColor && !app.engine.isGameOver() && !isBotThinkingRef.current && !app.engine.canRedo()) {
                 isBotThinkingRef.current = true;
                 setIsBotThinking(true);
                 
+                let moveData: { from: string, to: string, promotion?: PieceSymbol } | null = null;
+                const fenToEvaluate = app.engine.getFen();
+
                 try {
                     const delay = botConfig.engineOptions.thinkTimeBaseMs || 500;
                     // Add slight random variation
@@ -88,22 +139,32 @@ export function useBotMatch() {
                     if (!active) return;
 
                     if (evaluation.bestMove) {
-                        const from = evaluation.bestMove.substring(0, 2);
-                        const to = evaluation.bestMove.substring(2, 4);
-                        const promotion = evaluation.bestMove.length > 4 ? evaluation.bestMove[4] : undefined;
-                        
-                        const result = app.engine.attemptMove(from, to, promotion as PieceSymbol);
-                        if (result && result.success) {
-                            app.interaction.clearSelection();
-                            setBoardSnapshot(app.getSnapshot());
-                            setServerTurn(app.engine.getTurn());
-                        }
+                        moveData = {
+                            from: evaluation.bestMove.substring(0, 2),
+                            to: evaluation.bestMove.substring(2, 4),
+                            promotion: evaluation.bestMove.length > 4 ? evaluation.bestMove[4] as PieceSymbol : undefined
+                        };
                     }
                 } catch (error) {
                     console.error("Error getting bot move:", error);
                 } finally {
                     isBotThinkingRef.current = false;
                     if (active) setIsBotThinking(false);
+                }
+
+                if (moveData && active) {
+                    if (app.engine.canRedo()) {
+                        app.engine.goToEnd();
+                    }
+                    const result = app.engine.attemptMove(moveData.from, moveData.to, moveData.promotion);
+                    if (result && result.success) {
+                        app.interaction.clearSelection();
+                        setBoardSnapshot(app.getSnapshot());
+                        
+                        const updatedMainLine = app.engine.getGameTree().getMainLine();
+                        const updatedLastNode = updatedMainLine[updatedMainLine.length - 1];
+                        setServerTurn(updatedLastNode.fen.split(' ')[1] as 'w' | 'b');
+                    }
                 }
             }
         };

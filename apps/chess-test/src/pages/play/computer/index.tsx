@@ -179,6 +179,7 @@ export default function ComputerMatch() {
     const opponentColor = playerColor === 'w' ? 'b' : 'w';
 
     const getBestMove = async () => {
+        if (status === 'game_over') return;
         const currentFen = app.engine.getFen();
 
         if (hintState && hintState.fen === currentFen) {
@@ -213,6 +214,7 @@ export default function ComputerMatch() {
 
 
     const restoreMove = () => {
+        if (status === 'game_over') return;
         if (!app.engine.canUndo()) return;
         
         const currentTurn = app.engine.getTurn();
@@ -267,6 +269,7 @@ export default function ComputerMatch() {
                         emitMove={emitMove}
                         whiteTime={localWhiteTime}
                         blackTime={localBlackTime}
+                        isGameOver={status === 'game_over'}
                     />
                 </main>
 

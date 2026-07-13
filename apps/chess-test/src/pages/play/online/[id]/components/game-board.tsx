@@ -15,6 +15,7 @@ interface GameBoardProps {
     emitMove: (moveData: any) => void;
     whiteTime?: number | null;
     blackTime?: number | null;
+    isGameOver?: boolean;
 }
 
 const toCoords = (algebraic: string | null) => {
@@ -112,7 +113,8 @@ export function GameBoard({
     playerColor,
     emitMove,
     whiteTime,
-    blackTime
+    blackTime,
+    isGameOver
 }: GameBoardProps) {
     const handleMouseMove = useRef<(e: MouseEvent | TouchEvent) => void>(() => { });
     const handleMouseUp = useRef<(e: MouseEvent | TouchEvent) => void>(() => { });
@@ -155,6 +157,14 @@ export function GameBoard({
         return () => window.removeEventListener('mousedown', handleGlobalClick);
     }, [app, setBoardSnapshot]);
 
+    useEffect(() => {
+        if (isGameOver) {
+            app.interaction.clearSelection();
+            app.interaction.clearPremoves();
+            setBoardSnapshot(app.getSnapshot());
+        }
+    }, [isGameOver, app, setBoardSnapshot]);
+
     const movePiece = (e: MouseEvent | TouchEvent) => {
         const chessboard = chessboardRef.current;
         if (activePiece.current && chessboard) {
@@ -194,6 +204,7 @@ export function GameBoard({
 
     const dropPiece = (e: MouseEvent | TouchEvent) => {
         try {
+            if (isGameOver) return;
             const chessboard = chessboardRef.current;
             if (activePiece.current && chessboard) {
                 const boardRect = chessboard.getBoundingClientRect();
@@ -367,6 +378,7 @@ export function GameBoard({
 
     const safeHandleSquareClick = useCallback(
         (algebraic: string) => {
+            if (isGameOver) return;
             if (app.engine.canRedo()) return;
 
             const piece = app.engine.getPieceAt(algebraic);
@@ -400,10 +412,11 @@ export function GameBoard({
 
             setBoardSnapshot(app.getSnapshot());
         },
-        [app, playerColor, emitMove, setBoardSnapshot]
+        [app, playerColor, emitMove, setBoardSnapshot, isGameOver]
     );
 
     const grabPiece = (e: React.MouseEvent | React.TouchEvent, squareAlgebraic: string) => {
+        if (isGameOver) return;
         if (app.engine.canRedo()) return;
         const isMouse = 'button' in e;
         if (isMouse && (e as React.MouseEvent).button !== 0) return;
@@ -464,7 +477,7 @@ export function GameBoard({
     const selectedPiece = selectedSquareAlg ? app.engine.getPieceAt(selectedSquareAlg) : null;
     const isSelectedTurn = selectedPiece ? selectedPiece.color === app.engine.getTurn() : false;
 
-    const validDestinations = isSelectedTurn
+    const validDestinations = isSelectedTurn && !isGameOver
         ? (app.interaction.getValidDestinations() || []).map((sq) => {
             const coords = toCoords(sq);
             return {
@@ -475,10 +488,10 @@ export function GameBoard({
         })
         : [];
 
-    const premoves = app.interaction.getPremoves().map((pm: any) => ({
+    const premoves = !isGameOver ? app.interaction.getPremoves().map((pm: any) => ({
         from: toCoords(pm.from)!,
         to: toCoords(pm.to)!,
-    }));
+    })) : [];
 
     const coreAnnotations = app.annotations.getAnnotations();
     const mappedArrows = coreAnnotations
