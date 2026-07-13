@@ -1,4 +1,6 @@
 import { Crown } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { toast } from 'sonner';
 import { useOnlineMatch } from '@/hooks/use-online-match';
 import { LobbyBoard } from './components/lobby-board';
 import { LobbyPanel } from './components/lobby-panel';
@@ -18,6 +20,26 @@ export default function OnlineLobby() {
         handleCreateRoom,
         handleJoinRoom,
     } = useOnlineMatch();
+
+    const navigate = useNavigate();
+
+    const onCreateRoom = async (color: 'w' | 'b' | 'random') => {
+        const res = await handleCreateRoom(color);
+        if (res.success && res.roomId) {
+            navigate(`/play/online/${res.roomId}`);
+        } else if (res.error) {
+            toast.error(res.error);
+        }
+    };
+
+    const onJoinRoom = async (roomId: string) => {
+        const res = await handleJoinRoom(roomId);
+        if (res.success) {
+            navigate(`/play/online/${roomId}`);
+        } else if (res.error) {
+            toast.error(res.error);
+        }
+    };
 
     return (
         <div className="min-h-screen w-full bg-background">
@@ -50,8 +72,8 @@ export default function OnlineLobby() {
                         setSelectedTime={setSelectedTime}
                         selectedColor={selectedColor}
                         setSelectedColor={setSelectedColor}
-                        handleCreateRoom={handleCreateRoom}
-                        handleJoinRoom={handleJoinRoom}
+                        handleCreateRoom={onCreateRoom}
+                        handleJoinRoom={onJoinRoom}
                     />
                 </main>
             </div>

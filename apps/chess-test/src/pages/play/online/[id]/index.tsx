@@ -1,4 +1,5 @@
-import { useParams } from 'react-router';
+import { useParams, useNavigate } from 'react-router';
+import { toast } from 'sonner';
 import { useOnlineMatch } from '@/hooks/use-online-match';
 import { GameBoard } from './components/game-board';
 import { PlayerInfoBar } from './components/player-info-bar';
@@ -28,7 +29,10 @@ export default function OnlineMatch() {
         playerId,
         emitMove,
         getMaterialAdvantage,
+        error,
     } = useOnlineMatch(urlRoomId);
+
+    const navigate = useNavigate();
 
     const { playSound } = useChessAudio();
     const lastNodeId = useRef<string | null>(null);
@@ -49,6 +53,13 @@ export default function OnlineMatch() {
         observer.observe(mainRef.current);
         return () => observer.disconnect();
     }, [status]); // Only observe when playing
+
+    useEffect(() => {
+        if (error) {
+            toast.error(error.message);
+            navigate('/play/online');
+        }
+    }, [error, navigate]);
 
     // Audio Playback Sync
     useEffect(() => {

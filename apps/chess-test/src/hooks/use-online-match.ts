@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChessApp, type BoardSnapshot } from '@chess-fw/core';
 import { io, Socket } from 'socket.io-client';
-import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 
 export function useOnlineMatch(urlRoomId?: string) {
-    const navigate = useNavigate();
     const [socket, setSocket] = useState<Socket | null>(null);
+    const [error, setError] = useState<{ type: string, message: string } | null>(null);
     const [status, setStatus] = useState<'lobby' | 'waiting' | 'playing'>('lobby');
     const [roomId, setRoomId] = useState<string>('');
     const [playerColor, setPlayerColor] = useState<'w' | 'b'>('w');
@@ -135,8 +134,7 @@ export function useOnlineMatch(urlRoomId?: string) {
         newSocket.on('room_closed', () => {
             setStatus('lobby');
             setRoomId('');
-            toast.error('La sala fue cerrada por inactividad.');
-            navigate('/play/online');
+            setError({ type: 'room_closed', message: 'La sala fue cerrada por inactividad.' });
         });
 
         if (urlRoomId) {
@@ -158,8 +156,7 @@ export function useOnlineMatch(urlRoomId?: string) {
                     setBoardSnapshot(app.getSnapshot());
                     setStatus(res.waiting ? 'waiting' : 'playing');
                 } else {
-                    toast.error(res.error);
-                    navigate('/play/online');
+                    setError({ type: 'join_failed', message: res.error });
                 }
             });
         }
@@ -169,7 +166,7 @@ export function useOnlineMatch(urlRoomId?: string) {
         };
         // playerName/playerAvatar are read via refs above so the socket connects
         // once per room instead of reconnecting on every keystroke.
-    }, [app, urlRoomId, navigate, playerId]);
+    }, [app, urlRoomId, playerId]);
 
     useEffect(() => {
         if (!timeControl || status !== 'playing' || !serverPlayers) return;
@@ -235,24 +232,28 @@ export function useOnlineMatch(urlRoomId?: string) {
         };
     }, [boardSnapshot]);
 
-    const handleCreateRoom = (color: 'w' | 'b' | 'random') => {
-        if (!playerName) { toast.error("Por favor, ingresa un nombre"); return; }
-        localStorage.setItem('chess_player_name', playerName);
-        localStorage.setItem('chess_player_avatar', playerAvatar);
+    const handleCreateRoom = (color: 'w' | 'b' | 'random'): Promise<{ success: boolean; roomId?: string; error?: string }> => {
+        return new Promise((resolve) => {
+            if (!playerName) { resolve({ success: false, error: "Por favor, ingresa un nombre" }); return; }
+            localStorage.setItem('chess_player_name', playerName);
+            localStorage.setItem('chess_player_avatar', playerAvatar);
 
-        socket?.emit('create_room', { hostColor: color, timeControl: selectedTime, playerName, playerAvatar, playerId }, (res: any) => {
-            if (res.success) {
-                navigate(`/play/online/${res.roomId}`);
-            }
+            if (!socket) { resolve({ success: false, error: "No hay conexión al servidor" }); return; }
+
+            socket.emit('create_room', { hostColor: color, timeControl: selectedTime, playerName, playerAvatar, playerId }, (res: any) => {
+                resolve(res);
+            });
         });
     };
 
-    const handleJoinRoom = (inputRoomId: string) => {
-        if (!inputRoomId) return;
-        if (!playerName) { toast.error("Por favor, ingresa un nombre"); return; }
-        localStorage.setItem('chess_player_name', playerName);
-        localStorage.setItem('chess_player_avatar', playerAvatar);
-        navigate(`/play/online/${inputRoomId}`);
+    const handleJoinRoom = (inputRoomId: string): Promise<{ success: boolean; error?: string }> => {
+        return new Promise((resolve) => {
+            if (!inputRoomId) { resolve({ success: false, error: "Ingresa un ID de sala" }); return; }
+            if (!playerName) { resolve({ success: false, error: "Por favor, ingresa un nombre" }); return; }
+            localStorage.setItem('chess_player_name', playerName);
+            localStorage.setItem('chess_player_avatar', playerAvatar);
+            resolve({ success: true });
+        });
     };
 
     return {
@@ -260,6 +261,7 @@ export function useOnlineMatch(urlRoomId?: string) {
         boardSnapshot,
         setBoardSnapshot,
         socket,
+        error,
         status,
         roomId,
         playerColor,
