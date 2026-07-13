@@ -1,7 +1,7 @@
 {
   "name": "cli-demo",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "play:tui": "tsx play/chess-advanced-console.ts",
     "play:stockfish": "tsx play/stockfish-demo.ts",
