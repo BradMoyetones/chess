@@ -124,7 +124,6 @@ export function useBotMatch() {
                 setIsBotThinking(true);
                 
                 let moveData: { from: string, to: string, promotion?: PieceSymbol } | null = null;
-                const fenToEvaluate = app.engine.getFen();
 
                 try {
                     const delay = botConfig.engineOptions.thinkTimeBaseMs || 500;
