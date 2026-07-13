@@ -56,7 +56,7 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant, onRestoreMove
             await onBestMove();
             setLoadingBestMove(false);
         }
-    }
+    };
 
     if (variant === 'mobile') {
         return (
@@ -152,32 +152,26 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant, onRestoreMove
                     )}
                 </div>
             </CardContent>
-            <CardFooter className='flex-col gap-2'>
-                <div className='flex w-full gap-2'>
-                    {onRestoreMove && (
-                        <Button
-                            variant="outline"
-                            onClick={onRestoreMove}
-                            className="flex-1"
-                        >
-                            <Undo2 />
-                        </Button>
-                    )}
-                    {onBestMove && (
-                        <Button
-                            variant="outline"
-                            onClick={handleBestMove}
-                            className="flex-1"
-                            disabled={loadingBestMove}
-                        >
-                            {loadingBestMove ? (
-                                <Spinner />
-                            ) : (
-                                <Lightbulb />
-                            )}
-                        </Button>
-                    )}
-                </div>
+            <CardFooter className="flex-col gap-2">
+                {(onRestoreMove || onBestMove) && (
+                    <div className="flex w-full gap-2">
+                        {onRestoreMove && (
+                            <Button variant="outline" onClick={onRestoreMove} className="flex-1">
+                                <Undo2 />
+                            </Button>
+                        )}
+                        {onBestMove && (
+                            <Button
+                                variant="outline"
+                                onClick={handleBestMove}
+                                className="flex-1"
+                                disabled={loadingBestMove}
+                            >
+                                {loadingBestMove ? <Spinner /> : <Lightbulb />}
+                            </Button>
+                        )}
+                    </div>
+                )}
                 <div className="flex gap-2 w-full justify-center md:justify-start">
                     <Button
                         variant="outline"

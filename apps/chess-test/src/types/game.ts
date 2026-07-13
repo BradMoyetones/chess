@@ -22,14 +22,3 @@ export interface BotConfig extends Player {
         thinkTimeBaseMs?: number;
     };
 }
-
-export interface EvaluationData {
-    score: number;
-    mate: number | null;
-    depth: number;
-    bestMove: string;
-    ponder: string | null;
-    pv: string[];
-    nodes: number;
-    time: number;
-}

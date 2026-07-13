@@ -3,8 +3,11 @@ import { motion } from 'motion/react';
 import { Gauge, Infinity as InfinityIcon, Play, Shuffle, Timer, Zap, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { theme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { CHESS_BOTS } from '@/data/bots';
 import type { BotConfig, TimeControl } from '@/types/game';
 
@@ -43,7 +46,7 @@ const COLOR_OPTIONS: { key: 'w' | 'random' | 'b'; label: string }[] = [
 ];
 
 interface BotLobbyPanelProps {
-    onPlay: (color: 'w' | 'b' | 'random', bot: BotConfig, timeControl: TimeControl | null) => void;
+    onPlay: (color: 'w' | 'b' | 'random', bot: BotConfig, timeControl: TimeControl | null, engineMode: 'server' | 'local') => void;
 }
 
 export function BotLobbyPanel({ onPlay }: BotLobbyPanelProps) {
@@ -51,6 +54,22 @@ export function BotLobbyPanel({ onPlay }: BotLobbyPanelProps) {
     const [selectedTimeCategory, setSelectedTimeCategory] = useState<Category>('none');
     const [selectedTime, setSelectedTime] = useState<TimeControl | null>(null);
     const [selectedColor, setSelectedColor] = useState<'w' | 'b' | 'random'>('random');
+    const [engineMode, setEngineMode] = useState<'server' | 'local'>('server');
+
+    const handleEngineModeToggle = (checked: boolean) => {
+        if (!checked) {
+            // Local Mode
+            const hasWasm = typeof WebAssembly === 'object' && typeof WebAssembly.instantiate === 'function';
+            if (!hasWasm) {
+                toast.error('WebAssembly no está disponible en tu navegador.');
+                return;
+            }
+            setEngineMode('local');
+        } else {
+            // Server Mode
+            setEngineMode('server');
+        }
+    };
 
     const handleCategoryChange = (category: Category) => {
         setSelectedTimeCategory(category);
@@ -207,8 +226,24 @@ export function BotLobbyPanel({ onPlay }: BotLobbyPanelProps) {
                 </div>
             </div>
 
+            {/* Engine Mode Toggle */}
+            <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex flex-col space-y-0.5">
+                        <Label className="text-sm font-semibold">Motor en la Nube</Label>
+                        <span className="text-[11px] text-muted-foreground">
+                            {engineMode === 'server' ? 'Stockfish remoto (requiere conexión)' : 'Stockfish local WASM (ocupa CPU local)'}
+                        </span>
+                    </div>
+                    <Switch
+                        checked={engineMode === 'server'}
+                        onCheckedChange={handleEngineModeToggle}
+                    />
+                </div>
+            </div>
+
             <Button
-                onClick={() => onPlay(selectedColor, selectedBot, selectedTime)}
+                onClick={() => onPlay(selectedColor, selectedBot, selectedTime, engineMode)}
                 className="h-12 w-full bg-chess text-base font-semibold text-chess-foreground hover:bg-chess-hover"
             >
                 <Play className="size-5 fill-current" />

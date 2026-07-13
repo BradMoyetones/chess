@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChessApp, type BoardSnapshot } from '@chess-fw/core';
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
+import type { Player } from '@/types/game';
 
 export function useOnlineMatch(urlRoomId?: string) {
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -25,7 +26,7 @@ export function useOnlineMatch(urlRoomId?: string) {
     playerAvatarRef.current = playerAvatar;
 
     // Server Sync
-    const [serverPlayers, setServerPlayers] = useState<{ host: any, guest: any } | null>(null);
+    const [serverPlayers, setServerPlayers] = useState<{ host: Player | null, guest: Player | null } | null>(null);
     const [serverTurn, setServerTurn] = useState<'w' | 'b'>('w');
     const [lastMoveTime, setLastMoveTime] = useState<number | null>(null);
     const [timeControl, setTimeControl] = useState<{ initial: number, increment: number } | null>(null);
@@ -121,11 +122,11 @@ export function useOnlineMatch(urlRoomId?: string) {
         });
 
         newSocket.on('opponent_disconnected', ({ hostConnected, guestConnected }) => {
-            setServerPlayers((prev: any) => {
+            setServerPlayers((prev) => {
                 if (!prev) return prev;
                 return {
-                    host: { ...prev.host, connected: hostConnected },
-                    guest: prev.guest ? { ...prev.guest, connected: guestConnected } : null
+                    host: prev.host ? { ...prev.host, connected: hostConnected } as Player : null,
+                    guest: prev.guest ? { ...prev.guest, connected: guestConnected } as Player : null
                 };
             });
             toast.info('Un jugador se ha desconectado. Esperando reconexión...');
@@ -187,8 +188,8 @@ export function useOnlineMatch(urlRoomId?: string) {
                 }
             }
 
-            setLocalWhiteTime(currentWt);
-            setLocalBlackTime(currentBt);
+            setLocalWhiteTime(currentWt ?? null);
+            setLocalBlackTime(currentBt ?? null);
         }, 100);
         return () => clearInterval(interval);
     }, [timeControl, status, serverPlayers, serverTurn, lastMoveTime, playerColor, playerId]);

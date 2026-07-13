@@ -1,9 +1,10 @@
 import { Clock } from 'lucide-react';
 import { CapturedMaterial } from './captured-material';
 import { cn } from '@/lib/utils';
+import type { Player } from '@/types/game';
 
 interface PlayerInfoBarProps {
-    player: any;
+    player: Player | null;
     color: 'w' | 'b';
     isTurn: boolean;
     timeRemaining: number | null;
@@ -33,7 +34,7 @@ export function PlayerInfoBar({ player, color, isTurn, timeRemaining, material, 
                 </div>
                 <div className="flex flex-col justify-center leading-tight">
                     <div className="flex items-center gap-2">
-                        <h1 className="font-semibold text-md">{player.name || 'Jugador'}</h1>
+                        <h1 className="font-semibold text-md">{player.name || 'Jugador'} <span className='text-muted-foreground font-normal text-sm'>({player.rating || 1500})</span></h1>
                         {!player.connected && <span className="text-xs text-red-500 font-bold animate-pulse">Reconectando...</span>}
                     </div>
 

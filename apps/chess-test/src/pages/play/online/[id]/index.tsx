@@ -111,8 +111,8 @@ export default function OnlineMatch() {
     const { w: materialW, b: materialB } = getMaterialAdvantage();
     const localIsHost = serverPlayers?.host?.playerId === playerId;
 
-    const opponent = localIsHost ? serverPlayers?.guest : serverPlayers?.host;
-    const local = localIsHost ? serverPlayers?.host : serverPlayers?.guest;
+    const opponent = (localIsHost ? serverPlayers?.guest : serverPlayers?.host) ?? null;
+    const local = (localIsHost ? serverPlayers?.host : serverPlayers?.guest) ?? null;
 
     const localColor = playerColor;
     const opponentColor = playerColor === 'w' ? 'b' : 'w';

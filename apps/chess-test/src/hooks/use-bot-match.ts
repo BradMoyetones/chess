@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCoreGame } from './use-core-game';
-import type { BotConfig, TimeControl, EvaluationData } from '@/types/game';
+import type { BotConfig, TimeControl } from '@/types/game';
 import type { PieceSymbol } from 'chess.js';
+import type { EvaluationData } from '@chess-fw/core';
 
 export interface IEngineAdapter {
     evaluate: (fen: string, options?: BotConfig['engineOptions']) => Promise<EvaluationData>;

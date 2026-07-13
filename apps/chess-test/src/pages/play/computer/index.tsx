@@ -11,8 +11,12 @@ import { PlayerInfoBar } from '../online/[id]/components/player-info-bar';
 import { GameHistoryPanel } from '../online/[id]/components/game-history-panel';
 import PGNButtonsNavigate from '../online/[id]/components/pgn-buttons-navigate';
 import { useChessAudio } from '@/hooks/use-chess-audio';
-import type { Player, EvaluationData, BotConfig } from '@/types/game';
+import type { Player, BotConfig } from '@/types/game';
 import { io } from 'socket.io-client';
+import { StockfishAdapter, EventBus, type EvaluationData } from '@chess-fw/core';
+import { toast } from 'sonner';
+
+let localAdapterInstance: StockfishAdapter | null = null;
 
 const botSocket = io(import.meta.env.VITE_WS_URL);
 
@@ -61,6 +65,7 @@ export default function ComputerMatch() {
         step: 1 | 2;
     } | null;
     const [hintState, setHintState] = useState<HintState>(null);
+    const [currentAdapter, setCurrentAdapter] = useState<IEngineAdapter>(socketEngineAdapter);
     const hintColor = 'rgba(82, 176, 220, 0.8)';
 
     useEffect(() => {
@@ -127,7 +132,29 @@ export default function ComputerMatch() {
                                 <LobbyBoard />
                             </div>
                         </div>
-                        <BotLobbyPanel onPlay={(color, bot, tc) => startGame(color, bot, socketEngineAdapter, tc)} />
+                        <BotLobbyPanel onPlay={async (color, bot, tc, mode) => {
+                            let adapterToUse = socketEngineAdapter;
+                            if (mode === 'local') {
+                                try {
+                                    if (!localAdapterInstance) {
+                                        localAdapterInstance = new StockfishAdapter(new EventBus());
+                                        await localAdapterInstance.init({ workerPath: '/stockfish.js', defaultDepth: 15 });
+                                    }
+                                    adapterToUse = {
+                                        evaluate: async (fen: string, options?: BotConfig['engineOptions']) => {
+                                            if (options?.skillLevel !== undefined) {
+                                                localAdapterInstance!.setOption('Skill Level', options.skillLevel);
+                                            }
+                                            return localAdapterInstance!.evaluate(fen, options?.depth);
+                                        }
+                                    };
+                                } catch (error) {
+                                    toast.error("Error cargando Stockfish local. Usando servidor.");
+                                }
+                            }
+                            setCurrentAdapter(adapterToUse);
+                            startGame(color, bot, adapterToUse, tc);
+                        }} />
                     </main>
                 </div>
             </div>
@@ -169,7 +196,7 @@ export default function ComputerMatch() {
         
         try {
             // Evaluamos con un nivel alto para asegurar una buena pista
-            const evaluation = await socketEngineAdapter.evaluate(currentFen, { skillLevel: 20, depth: 15 });
+            const evaluation = await currentAdapter.evaluate(currentFen, { skillLevel: 20, depth: 15 });
             if (evaluation.bestMove) {
                 const from = evaluation.bestMove.substring(0, 2);
                 const to = evaluation.bestMove.substring(2, 4);
@@ -255,7 +282,7 @@ export default function ComputerMatch() {
                         timeControl={timeControl}
                     />
                 </footer>
-                <PGNButtonsNavigate app={app} setBoardSnapshot={setBoardSnapshot} />
+                <PGNButtonsNavigate app={app} setBoardSnapshot={setBoardSnapshot} onBestMove={getBestMove} onRestoreMove={restoreMove} />
             </div>
             {/* Desktop History Sidebar */}
             <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="desktop" onBestMove={getBestMove} onRestoreMove={restoreMove}   />
