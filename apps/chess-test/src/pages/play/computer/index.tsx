@@ -31,8 +31,6 @@ const socketEngineAdapter: IEngineAdapter = {
     }
 };
 
-
-
 export default function ComputerMatch() {
     const {
         app,
@@ -188,8 +186,28 @@ export default function ComputerMatch() {
 
 
     const restoreMove = () => {
+        if (!app.engine.canUndo()) return;
         
-    }
+        const currentTurn = app.engine.getTurn();
+        // Si nos toca a nosotros, deshacemos 2 (la nuestra y la del bot)
+        // Si le toca al bot (ej. está pensando), deshacemos 1 (la nuestra)
+        const movesToUndo = currentTurn === playerColor ? 2 : 1;
+        
+        for (let i = 0; i < movesToUndo; i++) {
+            if (app.engine.canUndo()) {
+                app.engine.undo();
+            }
+        }
+        
+        // Truncar el árbol para que no se pueda "rehacer" (borramos el futuro)
+        const currentNode = app.engine.getGameTree().getCurrentNode();
+        currentNode.children.splice(0, currentNode.children.length);
+        
+        app.annotations.clearAll();
+        app.interaction.clearSelection();
+        setHintState(null);
+        setBoardSnapshot(app.getSnapshot());
+    };
 
     return (
         <div className='flex bg-muted'>
