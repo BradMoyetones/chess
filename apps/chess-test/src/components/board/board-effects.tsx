@@ -85,7 +85,7 @@ export function BoardEffects({ app, boardSnapshot, flipped }: BoardEffectsProps)
     const winnerKingSquare = toCoords(winnerKingAlg);
 
     return (
-        <div className="absolute inset-0 z-20 pointer-events-none">
+        <div className="absolute inset-0 z-30 pointer-events-none">
             {/* Mate effect */}
             {matedKingSquare && (
                 <AnimatedSquareEffect
@@ -132,6 +132,7 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
             y: '-50%',
             top: '50%',
             left: '50%',
+            backgroundColor: 'rgba(0,0,0,0)',
         },
         animate: {
             width: '24%',
@@ -140,12 +141,14 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
             y: '0%',
             top: '2%',
             left: '74%',
+            backgroundColor: bgColor,
             transition: { delay: 0.7, duration: 0.4, ease: 'easeInOut' as const },
         },
     };
 
     return (
         <motion.div
+            key={type}
             variants={parentVariants}
             initial="initial"
             animate="animate"
@@ -163,9 +166,8 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
             {/* Icono animado */}
             <motion.div
                 className={cn('absolute flex items-center justify-center z-10 rounded-full', {
-                    'bg-[#e02828] text-white': type === 'mate-white',
-                    'bg-[#e02828] text-black': type === 'mate-black',
-                    'bg-[#83b84f]': type === 'winner',
+                    'text-white': type === 'mate-white' || type === 'winner',
+                    'text-black': type === 'mate-black',
                 })}
                 variants={iconVariants}
             >
