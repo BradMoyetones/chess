@@ -3,7 +3,7 @@ import { type PieceSymbol } from 'chess.js';
 import { ChessApp, type BoardSnapshot } from '@chess-fw/core';
 import { BoardAnnotations } from '@/components/board/board-annotations';
 import { BoardHighlights } from '@/components/board/board-highlights';
-import Coordinates from '@/components/coordinates';
+import Coordinates from '@/components/board/coordinates';
 import { theme, coordinateColors } from '@/lib/theme';
 
 interface GameBoardProps {

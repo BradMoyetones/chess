@@ -3,3 +3,4 @@ dist
 bin
 .turbo
 .vscode
+.DS_Store

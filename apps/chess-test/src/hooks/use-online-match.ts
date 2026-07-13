@@ -136,7 +136,7 @@ export function useOnlineMatch(urlRoomId?: string) {
             setStatus('lobby');
             setRoomId('');
             toast.error('La sala fue cerrada por inactividad.');
-            navigate('/online');
+            navigate('/play/online');
         });
 
         if (urlRoomId) {
@@ -159,7 +159,7 @@ export function useOnlineMatch(urlRoomId?: string) {
                     setStatus(res.waiting ? 'waiting' : 'playing');
                 } else {
                     toast.error(res.error);
-                    navigate('/online');
+                    navigate('/play/online');
                 }
             });
         }
@@ -242,7 +242,7 @@ export function useOnlineMatch(urlRoomId?: string) {
 
         socket?.emit('create_room', { hostColor: color, timeControl: selectedTime, playerName, playerAvatar, playerId }, (res: any) => {
             if (res.success) {
-                navigate(`/online/${res.roomId}`);
+                navigate(`/play/online/${res.roomId}`);
             }
         });
     };
@@ -252,7 +252,7 @@ export function useOnlineMatch(urlRoomId?: string) {
         if (!playerName) { toast.error("Por favor, ingresa un nombre"); return; }
         localStorage.setItem('chess_player_name', playerName);
         localStorage.setItem('chess_player_avatar', playerAvatar);
-        navigate(`/online/${inputRoomId}`);
+        navigate(`/play/online/${inputRoomId}`);
     };
 
     return {

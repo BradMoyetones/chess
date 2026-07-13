@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { motion } from 'motion/react';
 import type { PieceSymbol } from 'chess.js';
-import Coordinates from '@/components/coordinates';
+import Coordinates from '@/components/board/coordinates';
 import { theme, coordinateColors } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
