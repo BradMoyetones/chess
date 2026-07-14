@@ -170,7 +170,11 @@ export function useBotMatch() {
 
         const handleUpdate = () => {
             setBoardSnapshot(app.getSnapshot());
-            checkBotTurn();
+            if (app.engine.isGameOver() && !app.engine.canRedo()) {
+                setStatus('game_over');
+            } else {
+                checkBotTurn();
+            }
         };
 
         const unsubs = [

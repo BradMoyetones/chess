@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Crown } from 'lucide-react';
+import { Crown, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useBotMatch, type IEngineAdapter } from '@/hooks/use-bot-match';
 
 import { BotLobbyPanel } from './components/bot-lobby-panel';
@@ -49,6 +50,7 @@ export default function ComputerMatch() {
         getMaterialAdvantage,
         botPlayer,
         startGame,
+        endGame,
         emitMove
     } = useBotMatch();
 
@@ -84,7 +86,7 @@ export default function ComputerMatch() {
 
     // Audio Playback Sync
     useEffect(() => {
-        if (status !== 'playing') return;
+        if (status === 'lobby') return;
         const currentNode = app.engine.getGameTree().getCurrentNode();
         if (currentNode.id !== lastNodeId.current) {
             lastNodeId.current = currentNode.id;
@@ -238,11 +240,38 @@ export default function ComputerMatch() {
         setBoardSnapshot(app.getSnapshot());
     };
 
+    const handleRematch = () => {
+        const newColor = playerColor === 'w' ? 'b' : 'w';
+        startGame(newColor, botPlayer!, currentAdapter, timeControl);
+    };
+
+    const gameEmbed = status === 'game_over' ? (
+        <div className="flex flex-col gap-2 w-full pt-1 pb-2">
+            <div className="flex items-center justify-center gap-2 mb-1">
+                <Crown className="w-4 h-4 text-primary" />
+                <h3 className="font-bold text-sm text-primary">¡Partida Terminada!</h3>
+            </div>
+            <Button className="w-full font-bold shadow-sm" onClick={handleRematch}>
+                Jugar Revancha
+            </Button>
+            <Button variant="outline" className="w-full shadow-sm" onClick={endGame}>
+                Seleccionar otro Bot
+            </Button>
+        </div>
+    ) : (
+        <div className="flex w-full pt-1 pb-2">
+            <Button variant="destructive" className="w-full shadow-sm gap-2" onClick={endGame}>
+                <LogOut className="w-4 h-4" />
+                Salir
+            </Button>
+        </div>
+    );
+
     return (
         <div className='flex bg-muted'>
             <div className="h-screen w-screen flex flex-col overflow-hidden">
                 {/* Mobile History (Horizontal) */}
-                <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="mobile" onBestMove={getBestMove} onRestoreMove={restoreMove} />
+                <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="mobile" onBestMove={getBestMove} onRestoreMove={restoreMove} embed={gameEmbed} />
 
                 {/* Oponente (Header) */}
                 <header
@@ -290,7 +319,7 @@ export default function ComputerMatch() {
                 <PGNButtonsNavigate app={app} setBoardSnapshot={setBoardSnapshot} onBestMove={getBestMove} onRestoreMove={restoreMove} />
             </div>
             {/* Desktop History Sidebar */}
-            <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="desktop" onBestMove={getBestMove} onRestoreMove={restoreMove}   />
+            <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="desktop" onBestMove={getBestMove} onRestoreMove={restoreMove} embed={gameEmbed} />
         </div>
     );
 }

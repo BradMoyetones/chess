@@ -11,9 +11,10 @@ interface GameHistoryPanelProps {
     variant: 'mobile' | 'desktop';
     onRestoreMove?: () => void;
     onBestMove?: () => Promise<void>;
+    embed?: React.ReactNode;
 }
 
-export function GameHistoryPanel({ app, setBoardSnapshot, variant, onRestoreMove, onBestMove }: GameHistoryPanelProps) {
+export function GameHistoryPanel({ app, setBoardSnapshot, variant, onRestoreMove, onBestMove, embed }: GameHistoryPanelProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const scrollRefPc = useRef<HTMLDivElement>(null);
     const [play, setPlay] = useState(false);
@@ -90,6 +91,11 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant, onRestoreMove
                         )}
                     </div>
                 </div>
+                {embed && (
+                    <div className="p-2 border-t bg-muted/20">
+                        {embed}
+                    </div>
+                )}
             </div>
         );
     }
@@ -153,6 +159,7 @@ export function GameHistoryPanel({ app, setBoardSnapshot, variant, onRestoreMove
                 </div>
             </CardContent>
             <CardFooter className="flex-col gap-2">
+                {embed && embed}
                 {(onRestoreMove || onBestMove) && (
                     <div className="flex w-full gap-2">
                         {onRestoreMove && (
