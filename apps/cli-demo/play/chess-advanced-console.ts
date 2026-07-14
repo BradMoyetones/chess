@@ -4,14 +4,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { 
     ChessEngine, 
-    InteractionManager, 
-    HistoryManager, 
-    HeadlessBoard,
-    ThemeConfig,
-    BoardSnapshot,
-    SquareData,
-    EventBus,
-    Container
+    type BoardSnapshot,
+    type SquareData,
+    ChessApp
 } from '@chess-fw/core';
 
 // ══════════════════════════════════════════════════
@@ -97,7 +92,7 @@ function getNormalizedPieces() {
 //  INICIALIZACIÓN DEL MOTOR
 // ══════════════════════════════════════════════════
 // Configuramos un ThemeManager tonto para que HeadlessBoard no se queje
-const dummyTheme: ThemeConfig = {
+const dummyTheme = {
     id: "dummy", 
     name: "Dummy", 
     board: { 
@@ -138,11 +133,14 @@ const dummyTheme: ThemeConfig = {
     }
 };
 
-const eventBus = Container.resolve(EventBus);
-const engine = Container.resolve(ChessEngine);
-const interactionManager = Container.resolve(InteractionManager);
-const historyManager = Container.resolve(HistoryManager);
-const board = new HeadlessBoard(engine, { interactionManager });
+const app = new ChessApp({
+    fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Opcional - Por defecto empieza en la posición inicial
+    mode: "PLAY" // Opcional - Por defecto es "PLAY" para jugar y "ANALYZE" para analizar
+});
+const eventBus = app.events;
+const engine = app.engine;
+const historyManager = app.engine;
+const board = app.board;
 
 let lastMessage = "";
 

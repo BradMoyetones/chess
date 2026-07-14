@@ -4,7 +4,17 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import crypto from 'crypto';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { StockfishAdapter, EventBus } from '@chess-fw/core';
+import { detectOS } from './constants/os.js';
+import { STOCKFISH_BINARIES } from './constants/stockfish.js';
+
+const filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(filename);
+
+const detectedOs = detectOS();
+const binary = STOCKFISH_BINARIES.find(binary => binary.value === detectedOs);
+const stockfishBinaryPath = path.resolve(__dirname, 'bin', binary.destExe);
 
 const app = express();
 app.use(cors());
@@ -14,7 +24,7 @@ const eventBus = new EventBus();
 const stockfish = new StockfishAdapter(eventBus);
 
 await stockfish.init({
-    binaryPath: path.resolve('bin', 'stockfish.exe'),
+    binaryPath: stockfishBinaryPath,
     defaultDepth: 15,
     threads: 1,
     hashSize: 16
