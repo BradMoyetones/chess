@@ -161,16 +161,15 @@ function AnimatedSquareEffect({ x, y, type }: { x: number; y: number; type: 'mat
                         initial={{ opacity: 0, y: `calc(${targetY} + 15px)`, x: targetX }}
                         animate={{ opacity: 1, y: targetY, x: targetX }}
                         transition={{ duration: 0.3, ease: "easeOut" }}
-                        className="absolute z-10 flex items-center shadow-lg px-2 overflow-hidden"
+                        className="absolute z-10 flex items-center shadow-lg md:px-2 px-1 overflow-hidden"
                         style={{
                             backgroundColor: '#ffffff',
                             borderRadius: '9999px',
                             top: targetTop,
                             left: targetLeft,
-                            height: '32px'
                         }}
                     >
-                        <span className={cn('text-lg font-bold uppercase whitespace-nowrap', {
+                        <span className={cn('text-xs md:text-lg font-bold uppercase whitespace-nowrap', {
                             'text-[#83b84f]': type === 'winner',
                             'text-[#e02828]': type !== 'winner',
                         })}>
