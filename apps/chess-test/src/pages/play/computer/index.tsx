@@ -134,7 +134,7 @@ export default function ComputerMatch() {
                                 <LobbyBoard />
                             </div>
                         </div>
-                        <BotLobbyPanel onPlay={async (color, bot, tc, mode) => {
+                        <BotLobbyPanel socket={botSocket} onPlay={async (color, bot, tc, mode) => {
                             let adapterToUse = socketEngineAdapter;
                             if (mode === 'local') {
                                 try {

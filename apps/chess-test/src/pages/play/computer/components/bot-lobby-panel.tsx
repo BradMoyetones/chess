@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react';
+import { useState, useEffect, type ComponentType } from 'react';
 import { motion } from 'motion/react';
 import { Gauge, Infinity as InfinityIcon, Play, Shuffle, Timer, Zap, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -47,14 +47,39 @@ const COLOR_OPTIONS: { key: 'w' | 'random' | 'b'; label: string }[] = [
 
 interface BotLobbyPanelProps {
     onPlay: (color: 'w' | 'b' | 'random', bot: BotConfig, timeControl: TimeControl | null, engineMode: 'server' | 'local') => void;
+    socket: any;
 }
 
-export function BotLobbyPanel({ onPlay }: BotLobbyPanelProps) {
+export function BotLobbyPanel({ onPlay, socket }: BotLobbyPanelProps) {
     const [selectedBotId, setSelectedBotId] = useState<string>(CHESS_BOTS[1].playerId); // Default: Aficionado
     const [selectedTimeCategory, setSelectedTimeCategory] = useState<Category>('none');
     const [selectedTime, setSelectedTime] = useState<TimeControl | null>(null);
     const [selectedColor, setSelectedColor] = useState<'w' | 'b' | 'random'>('random');
-    const [engineMode, setEngineMode] = useState<'server' | 'local'>('server');
+    const [engineMode, setEngineMode] = useState<'server' | 'local'>(socket.connected ? 'server' : 'local');
+    const [socketConnected, setSocketConnected] = useState(socket.connected);
+
+    useEffect(() => {
+        const onConnect = () => setSocketConnected(true);
+        const onDisconnect = () => {
+            setSocketConnected(false);
+            setEngineMode('local');
+        };
+
+        socket.on('connect', onConnect);
+        socket.on('disconnect', onDisconnect);
+
+        if (!socket.connected) {
+            setSocketConnected(false);
+            setEngineMode('local');
+        } else {
+            setSocketConnected(true);
+        }
+
+        return () => {
+            socket.off('connect', onConnect);
+            socket.off('disconnect', onDisconnect);
+        };
+    }, [socket]);
 
     const handleEngineModeToggle = (checked: boolean) => {
         if (!checked) {
@@ -232,12 +257,15 @@ export function BotLobbyPanel({ onPlay }: BotLobbyPanelProps) {
                     <div className="flex flex-col space-y-0.5">
                         <Label className="text-sm font-semibold">Motor en la Nube</Label>
                         <span className="text-[11px] text-muted-foreground">
-                            {engineMode === 'server' ? 'Stockfish remoto (requiere conexión)' : 'Stockfish local WASM (ocupa CPU local)'}
+                            {!socketConnected 
+                                ? 'Servidor desconectado. Usando motor local WASM.' 
+                                : (engineMode === 'server' ? 'Stockfish remoto (requiere conexión)' : 'Stockfish local WASM (ocupa CPU local)')}
                         </span>
                     </div>
                     <Switch
                         checked={engineMode === 'server'}
                         onCheckedChange={handleEngineModeToggle}
+                        disabled={!socketConnected}
                     />
                 </div>
             </div>
