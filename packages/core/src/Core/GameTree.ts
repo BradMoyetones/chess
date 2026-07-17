@@ -2,7 +2,7 @@
 // Mantiene el árbol completo de la partida y permite navegar entre
 // posiciones, crear variantes, y serializar/deserializar.
 
-import { MoveNode, resetNodeCounter } from './MoveNode';
+import { MoveNode } from './MoveNode';
 import type { MoveData } from '../Types';
 
 const DEFAULT_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -10,10 +10,16 @@ const DEFAULT_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 export class GameTree {
     private root: MoveNode;
     private currentNode: MoveNode;
+    private nodeCounter: number = 0;
 
     constructor(initialFen: string = DEFAULT_FEN) {
-        this.root = new MoveNode(initialFen, null, null);
+        this.root = new MoveNode(this.nextNodeId(), initialFen, null, null);
         this.currentNode = this.root;
+    }
+
+    /** Generates the next unique node ID for this tree instance */
+    private nextNodeId(): string {
+        return `node-${this.nodeCounter++}`;
     }
 
     // ═══════════════════════════════════════════
@@ -106,7 +112,7 @@ export class GameTree {
         }
 
         // Crear nuevo nodo
-        const newNode = new MoveNode(fen, move, this.currentNode);
+        const newNode = new MoveNode(this.nextNodeId(), fen, move, this.currentNode);
         this.currentNode.addChild(newNode);
         this.currentNode = newNode;
         return newNode;
@@ -165,7 +171,8 @@ export class GameTree {
 
     /** Reinicia el árbol con una nueva posición inicial */
     reset(initialFen: string = DEFAULT_FEN): void {
-        this.root = new MoveNode(initialFen, null, null);
+        this.nodeCounter = 0;
+        this.root = new MoveNode(this.nextNodeId(), initialFen, null, null);
         this.currentNode = this.root;
     }
 

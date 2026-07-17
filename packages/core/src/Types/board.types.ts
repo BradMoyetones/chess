@@ -7,6 +7,24 @@ import type { EvaluationData } from './engine.types';
 import type { Annotation } from './annotation.types';
 
 /**
+ * Resultado de una partida finalizada.
+ */
+export interface GameResult {
+    winner: 'w' | 'b' | 'draw';
+    reason: 'checkmate' | 'stalemate' | 'timeout' | 'resignation' | 'draw_agreement' | 'insufficient_material' | 'fifty_move' | 'threefold_repetition';
+}
+
+/**
+ * Información de material capturado y ventaja.
+ */
+export interface MaterialInfo {
+    capturedByWhite: PieceSymbol[];
+    capturedByBlack: PieceSymbol[];
+    whiteAdvantage: number;
+    blackAdvantage: number;
+}
+
+/**
  * Datos de una casilla individual dentro del tablero.
  * Contiene toda la información que la UI necesita para renderizar.
  */
@@ -45,7 +63,9 @@ export interface BoardSnapshot {
         moveNumber: number;
         fen: string;
         mode: EngineMode;
+        boardOrientation: 'w' | 'b';
         evaluation?: EvaluationData;    // Inyectado por Stockfish (Fase 5)
+        result?: GameResult | null;     // Resultado de la partida
     };
 
     /** Cuadrícula 8x8 con metadata por casilla */
@@ -68,4 +88,7 @@ export interface BoardSnapshot {
         currentIndex: number;
         hasVariations: boolean;
     };
+
+    /** Información de material y capturas */
+    material?: MaterialInfo;
 }

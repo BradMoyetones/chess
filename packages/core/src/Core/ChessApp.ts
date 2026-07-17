@@ -25,6 +25,8 @@ export class ChessApp {
     readonly interaction: InteractionManager;
     readonly annotations: AnnotationManager;
 
+    private boardOrientation: 'w' | 'b' = 'w';
+
     constructor(config: ChessAppConfig = {}) {
         this.events = new EventBus();
         this.engine = new ChessEngine(this.events, config.fen);
@@ -33,6 +35,7 @@ export class ChessApp {
         this.board = new HeadlessBoard(this.engine, {
             interactionManager: this.interaction,
             annotationManager: this.annotations,
+            getOrientation: () => this.boardOrientation,
         });
 
         if (config.mode) this.engine.setMode(config.mode);
@@ -61,6 +64,29 @@ export class ChessApp {
     /** Rehace el siguiente movimiento */
     redo(): boolean {
         return this.engine.redo();
+    }
+
+    /** Toggles the board orientation between 'w' and 'b' */
+    flipBoard(): void {
+        this.boardOrientation = this.boardOrientation === 'w' ? 'b' : 'w';
+    }
+
+    /** Sets the board orientation to a specific color */
+    setBoardOrientation(color: 'w' | 'b'): void {
+        this.boardOrientation = color;
+    }
+
+    /** Returns the current board orientation */
+    getBoardOrientation(): 'w' | 'b' {
+        return this.boardOrientation;
+    }
+
+    /** Resets the game, clearing all state including annotations and interaction */
+    resetGame(fen?: string): void {
+        this.engine.resetGame(fen);
+        this.annotations.clearAll();
+        this.interaction.clearSelection();
+        this.interaction.clearPremoves();
     }
 
     /** Limpia todas las suscripciones y estado */

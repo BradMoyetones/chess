@@ -5,13 +5,13 @@
 
 import type { MoveData } from '../Types';
 
-let nodeCounter = 0;
-
 /**
- * Resetea el contador de nodos. Útil para tests.
+ * Resetea el contador de nodos.
+ * @deprecated No-op. Each GameTree now manages its own counter.
+ * Kept for backward compatibility.
  */
 export function resetNodeCounter(): void {
-    nodeCounter = 0;
+    // No-op: node IDs are now managed per-GameTree instance
 }
 
 export class MoveNode {
@@ -36,8 +36,8 @@ export class MoveNode {
     /** Índice en semijugadas desde el root (root = 0, primer movimiento = 1, etc.) */
     readonly halfMoveIndex: number;
 
-    constructor(fen: string, move: MoveData | null, parent: MoveNode | null) {
-        this.id = `node_${++nodeCounter}`;
+    constructor(id: string, fen: string, move: MoveData | null, parent: MoveNode | null) {
+        this.id = id;
         this.fen = fen;
         this.move = move;
         this.parent = parent;

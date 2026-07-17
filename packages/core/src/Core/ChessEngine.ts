@@ -1,7 +1,7 @@
 import { Chess, Square, PieceSymbol, Color, Move } from 'chess.js';
 import { EventBus } from './EventBus';
 import { GameTree } from './GameTree';
-import type { MoveData, MoveResult } from '../Types';
+import type { MoveData, MoveResult, GameResult } from '../Types';
 import type { EngineMode } from '../Types';
 
 export interface PieceData {
@@ -21,6 +21,17 @@ export class ChessEngine {
     private gameTree: GameTree;
     private lastMove: { from: string; to: string } | null = null;
     private mode: EngineMode = 'PLAY';
+    private gameResult: GameResult | null = null;
+
+    /** Standard piece values for material calculation */
+    private static readonly PIECE_VALUES: Record<PieceSymbol, number> = {
+        p: 1, n: 3, b: 3, r: 5, q: 9, k: 0
+    };
+
+    /** Starting material in a standard chess game */
+    private static readonly STARTING_MATERIAL: Record<PieceSymbol, number> = {
+        p: 8, n: 2, b: 2, r: 2, q: 1, k: 1
+    };
 
     constructor(eventBus: EventBus, initialFen?: string) {
         this.eventBus = eventBus;
@@ -219,6 +230,11 @@ export class ChessEngine {
             this.lastMove = { from: node.move.from, to: node.move.to };
         } else {
             this.lastMove = null;
+        }
+
+        // Emit VARIATION_SELECTED if the node is not on the main line
+        if (!node.isMainLine()) {
+            this.eventBus.emit('VARIATION_SELECTED', { nodeId: node.id });
         }
 
         this.eventBus.emit('NAVIGATE_TO_MOVE', { moveIndex: node.halfMoveIndex });
@@ -554,6 +570,7 @@ export class ChessEngine {
         }
         this.gameTree.reset(this.chess.fen());
         this.lastMove = null;
+        this.gameResult = null;
         this.eventBus.emit('GAME_RESET', {});
         this.eventBus.emit('BOARD_UPDATED', {});
     }
@@ -602,13 +619,128 @@ export class ChessEngine {
         // 4. Estado post-movimiento
         if (this.chess.isCheckmate()) {
             const winner = this.chess.turn() === 'w' ? 'b' : 'w';
+            this.gameResult = { winner, reason: 'checkmate' };
             this.eventBus.emit('GAME_OVER', { winner, reason: 'checkmate' });
         } else if (this.chess.isCheck()) {
             this.eventBus.emit('CHECK', { kingColor: this.chess.turn() });
         } else if (this.chess.isStalemate()) {
+            this.gameResult = { winner: 'draw', reason: 'stalemate' };
             this.eventBus.emit('GAME_OVER', { winner: 'draw', reason: 'stalemate' });
+        } else if (this.chess.isInsufficientMaterial()) {
+            this.gameResult = { winner: 'draw', reason: 'insufficient_material' };
+            this.eventBus.emit('GAME_OVER', { winner: 'draw', reason: 'insufficient_material' });
+        } else if (this.chess.isThreefoldRepetition()) {
+            this.gameResult = { winner: 'draw', reason: 'threefold_repetition' };
+            this.eventBus.emit('GAME_OVER', { winner: 'draw', reason: 'threefold_repetition' });
         } else if (this.chess.isDraw()) {
-            this.eventBus.emit('GAME_OVER', { winner: 'draw', reason: 'draw' });
+            this.gameResult = { winner: 'draw', reason: 'fifty_move' };
+            this.eventBus.emit('GAME_OVER', { winner: 'draw', reason: 'fifty_move' });
         }
+    }
+
+    // ═══════════════════════════════════════════
+    //  MATERIAL Y CAPTURAS
+    // ═══════════════════════════════════════════
+
+    /**
+     * Returns pieces captured by each side.
+     * `w` = pieces captured BY white (black pieces that were taken)
+     * `b` = pieces captured BY black (white pieces that were taken)
+     */
+    public getCapturedPieces(): { w: PieceSymbol[]; b: PieceSymbol[] } {
+        const currentWhite: Record<PieceSymbol, number> = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 };
+        const currentBlack: Record<PieceSymbol, number> = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 };
+
+        // Count pieces on the board
+        const board = this.chess.board();
+        for (const row of board) {
+            for (const square of row) {
+                if (square) {
+                    if (square.color === 'w') {
+                        currentWhite[square.type]++;
+                    } else {
+                        currentBlack[square.type]++;
+                    }
+                }
+            }
+        }
+
+        // Calculate captured pieces (starting - current)
+        const capturedByWhite: PieceSymbol[] = []; // black pieces taken
+        const capturedByBlack: PieceSymbol[] = []; // white pieces taken
+
+        const pieceTypes: PieceSymbol[] = ['q', 'r', 'b', 'n', 'p'];
+        for (const piece of pieceTypes) {
+            const missingBlack = ChessEngine.STARTING_MATERIAL[piece] - currentBlack[piece];
+            const missingWhite = ChessEngine.STARTING_MATERIAL[piece] - currentWhite[piece];
+            for (let i = 0; i < missingBlack; i++) capturedByWhite.push(piece);
+            for (let i = 0; i < missingWhite; i++) capturedByBlack.push(piece);
+        }
+
+        return { w: capturedByWhite, b: capturedByBlack };
+    }
+
+    /**
+     * Returns the material advantage for each side using standard piece values.
+     * (p=1, n=3, b=3, r=5, q=9)
+     */
+    public getMaterialAdvantage(): { w: number; b: number } {
+        const captured = this.getCapturedPieces();
+        let whiteScore = 0;
+        let blackScore = 0;
+
+        for (const piece of captured.w) {
+            whiteScore += ChessEngine.PIECE_VALUES[piece];
+        }
+        for (const piece of captured.b) {
+            blackScore += ChessEngine.PIECE_VALUES[piece];
+        }
+
+        const diff = whiteScore - blackScore;
+        return {
+            w: diff > 0 ? diff : 0,
+            b: diff < 0 ? -diff : 0
+        };
+    }
+
+    // ═══════════════════════════════════════════
+    //  RESULTADO DE LA PARTIDA
+    // ═══════════════════════════════════════════
+
+    /** Returns the game result, or null if the game is still in progress */
+    public getResult(): GameResult | null {
+        return this.gameResult;
+    }
+
+    /** Sets the game result externally (e.g., timeout, resignation) */
+    public setResult(result: GameResult): void {
+        this.gameResult = result;
+    }
+
+    // ═══════════════════════════════════════════
+    //  DRAW / RESIGN PROTOCOL
+    // ═══════════════════════════════════════════
+
+    /** One side resigns. Sets result and emits GAME_OVER. */
+    public resign(color: 'w' | 'b'): void {
+        const winner = color === 'w' ? 'b' : 'w';
+        this.gameResult = { winner, reason: 'resignation' };
+        this.eventBus.emit('GAME_OVER', { winner, reason: 'resignation' });
+    }
+
+    /** Emits DRAW_OFFERED event */
+    public offerDraw(): void {
+        this.eventBus.emit('DRAW_OFFERED', {});
+    }
+
+    /** Accepts a draw offer. Sets result and emits GAME_OVER. */
+    public acceptDraw(): void {
+        this.gameResult = { winner: 'draw', reason: 'draw_agreement' };
+        this.eventBus.emit('GAME_OVER', { winner: 'draw', reason: 'draw_agreement' });
+    }
+
+    /** Declines a draw offer. Emits DRAW_DECLINED. */
+    public declineDraw(): void {
+        this.eventBus.emit('DRAW_DECLINED', {});
     }
 }

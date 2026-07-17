@@ -1,23 +1,26 @@
 import { useParams, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { useOnlineMatch } from '@/hooks/use-online-match';
-import { GameBoard } from './components/game-board';
-import { PlayerInfoBar } from './components/player-info-bar';
-import { GameHistoryPanel } from './components/game-history-panel';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Copy } from 'lucide-react';
-import { useEffect, useState, useRef } from 'react';
-import { useChessAudio } from '@/hooks/use-chess-audio';
-import PGNButtonsNavigate from './components/pgn-buttons-navigate';
+import { useEffect, useRef } from 'react';
+
+// New modular imports
+import { Board } from '@/modules/board/ui/components/Board';
+import { GameHistoryPanel } from '@/modules/board/ui/components/GameHistoryPanel';
+import { PGNButtonsNavigate as PGNNavigation } from '@/modules/board/ui/components/PGNNavigation';
+import { PlayerInfoBar } from '@/modules/board/ui/components/PlayerInfoBar';
+import { useOnlineBoardController } from '@/modules/game/online/hooks/useOnlineBoardController';
+import { useBoardSize } from '@/modules/board/ui/hooks/useBoardSize';
+import { useChessAudio } from '@/modules/board/ui/hooks/useChessAudio';
+import { computeMaterialAdvantage } from '@/modules/board/core/usecases/ComputeMaterial.usecase';
 
 export default function OnlineMatch() {
     const { id: urlRoomId } = useParams();
     const {
         app,
-        boardSnapshot,
-        setBoardSnapshot,
         status,
         roomId,
         playerColor,
@@ -28,31 +31,26 @@ export default function OnlineMatch() {
         localBlackTime,
         playerId,
         emitMove,
-        getMaterialAdvantage,
         error,
     } = useOnlineMatch(urlRoomId);
 
     const navigate = useNavigate();
-
-    const { playSound } = useChessAudio();
-    const lastNodeId = useRef<string | null>(null);
-
-    const [boardSize, setBoardSize] = useState<number | null>(null);
     const mainRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        if (!mainRef.current) return;
-        const observer = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                const { width, height } = entry.contentRect;
-                const minDimension = Math.min(width, height);
-                const roundedSize = Math.floor(minDimension / 8) * 8;
-                setBoardSize(roundedSize);
-            }
-        });
-        observer.observe(mainRef.current);
-        return () => observer.disconnect();
-    }, [status]); // Only observe when playing
+    // New: BoardController bridge
+    const isGameOver = app.engine.isGameOver() || (localWhiteTime !== null && localWhiteTime <= 0) || (localBlackTime !== null && localBlackTime <= 0);
+    const controller = useOnlineBoardController({
+        app,
+        playerColor,
+        isGameOver,
+        emitMove,
+        whiteTime: localWhiteTime,
+        blackTime: localBlackTime,
+    });
+
+    // New: shared hooks replace duplicated code
+    const boardSize = useBoardSize(mainRef, status === 'playing');
+    useChessAudio(controller, status === 'playing');
 
     useEffect(() => {
         if (error) {
@@ -60,28 +58,6 @@ export default function OnlineMatch() {
             navigate('/play/online');
         }
     }, [error, navigate]);
-
-    // Audio Playback Sync
-    useEffect(() => {
-        const currentNode = app.engine.getGameTree().getCurrentNode();
-        if (currentNode.id !== lastNodeId.current) {
-            lastNodeId.current = currentNode.id;
-            const move = currentNode.move;
-            if (move && move.san) {
-                if (move.san.includes('+') || move.san.includes('#')) {
-                    playSound('moveCheck');
-                } else if (move.san.includes('x')) {
-                    playSound('capture');
-                } else if (move.san === 'O-O' || move.san === 'O-O-O') {
-                    playSound('castle');
-                } else if (move.san.includes('=')) {
-                    playSound('promote');
-                } else {
-                    playSound('moveSelf');
-                }
-            }
-        }
-    }, [app, boardSnapshot, playSound]);
 
     if (status === 'lobby') {
         return <div className="h-screen flex items-center justify-center p-4"><Spinner /></div>;
@@ -108,7 +84,8 @@ export default function OnlineMatch() {
         );
     }
 
-    const { w: materialW, b: materialB } = getMaterialAdvantage();
+    // Material advantage from centralized usecase
+    const material = computeMaterialAdvantage(controller.getBoardGrid());
     const localIsHost = serverPlayers?.host?.playerId === playerId;
 
     const opponent = (localIsHost ? serverPlayers?.guest : serverPlayers?.host) ?? null;
@@ -121,7 +98,7 @@ export default function OnlineMatch() {
         <div className='flex bg-muted'>
             <div className="h-screen w-screen flex flex-col overflow-hidden">
                 {/* Mobile History (Horizontal) */}
-                <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="mobile" />
+                <GameHistoryPanel controller={controller} variant="mobile" />
 
                 {/* Oponente (Header) */}
                 <header
@@ -133,22 +110,14 @@ export default function OnlineMatch() {
                         color={opponentColor}
                         isTurn={serverTurn === opponentColor}
                         timeRemaining={opponentColor === 'w' ? localWhiteTime : localBlackTime}
-                        material={opponentColor === 'w' ? materialW : materialB}
+                        material={opponentColor === 'w' ? material.w : material.b}
                         timeControl={timeControl}
                     />
                 </header>
 
-                {/* Tablero (Centro) */}
+                {/* Tablero (Centro) — NEW: uses agnostic Board + controller */}
                 <main className="flex-1 min-h-0 w-full relative" ref={mainRef}>
-                    <GameBoard
-                        app={app}
-                        boardSnapshot={boardSnapshot}
-                        setBoardSnapshot={setBoardSnapshot}
-                        playerColor={playerColor}
-                        emitMove={emitMove}
-                        whiteTime={localWhiteTime}
-                        blackTime={localBlackTime}
-                    />
+                    <Board controller={controller} />
                 </main>
 
                 {/* Local Player (Footer) */}
@@ -161,14 +130,14 @@ export default function OnlineMatch() {
                         color={localColor}
                         isTurn={serverTurn === localColor}
                         timeRemaining={localColor === 'w' ? localWhiteTime : localBlackTime}
-                        material={localColor === 'w' ? materialW : materialB}
+                        material={localColor === 'w' ? material.w : material.b}
                         timeControl={timeControl}
                     />
                 </footer>
-                <PGNButtonsNavigate app={app} setBoardSnapshot={setBoardSnapshot} />
+                <PGNNavigation controller={controller} />
             </div>
             {/* Desktop History Sidebar */}
-            <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="desktop" />
+            <GameHistoryPanel controller={controller} variant="desktop" />
         </div>
     );
 }
