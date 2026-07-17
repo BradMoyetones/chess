@@ -115,7 +115,10 @@ export const useBoardStore = create<BoardStoreState>()(
                     updates.lastMove = newLastMove;
                     hasChanges = true;
                 }
-                if (state.annotations.length !== newAnnotations.length) {
+                const annotationsChanged = state.annotations.length !== newAnnotations.length
+                    || state.annotations[0]?.id !== newAnnotations[0]?.id
+                    || state.annotations[state.annotations.length - 1]?.id !== newAnnotations[newAnnotations.length - 1]?.id;
+                if (annotationsChanged) {
                     updates.annotations = newAnnotations;
                     hasChanges = true;
                 }

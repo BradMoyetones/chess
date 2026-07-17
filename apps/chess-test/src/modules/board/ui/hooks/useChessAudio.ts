@@ -1,72 +1,86 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { Howl } from 'howler';
 import type { BoardController } from '@/modules/board/core/ports/BoardController.port';
+import { useBoardStore } from '@/modules/board/ui/store/useBoardStore';
 
-type SoundKey = 'moveSelf' | 'capture' | 'castle' | 'moveCheck' | 'promote';
+// ─── Sound Definitions ───────────────────────────────────────────────────────
 
-const SOUND_URLS: Record<SoundKey, string> = {
-    capture: '/assets/sounds/capture.mp3',
-    castle: '/assets/sounds/castle.mp3',
-    moveCheck: '/assets/sounds/move-check.mp3',
-    moveSelf: '/assets/sounds/move-self.mp3',
-    promote: '/assets/sounds/promote.mp3',
-};
+type SoundKey = 'moveSelf' | 'capture' | 'castle' | 'moveCheck' | 'promote' | 'gameStart' | 'gameEnd';
 
 /**
- * Determines which sound to play for a given move.
+ * Singleton audio manager using Howler.js.
+ *
+ * Howler automatically handles:
+ * - Web Audio API unlock on first user interaction (iOS/Safari)
+ * - Audio context suspension/resume
+ * - Format fallback (webm → mp3)
+ * - Internal pooling (no cloneNode hacks)
+ *
+ * We use individual Howl instances per sound (not sprites) because
+ * each file is tiny (<50KB) and this avoids sprite offset drift.
+ */
+const sounds: Record<SoundKey, Howl> = {
+    moveSelf: new Howl({ src: ['/assets/sounds/move-self.mp3'], volume: 0.5, preload: true }),
+    capture: new Howl({ src: ['/assets/sounds/capture.mp3'], volume: 0.5, preload: true }),
+    castle: new Howl({ src: ['/assets/sounds/castle.mp3'], volume: 0.5, preload: true }),
+    moveCheck: new Howl({ src: ['/assets/sounds/move-check.mp3'], volume: 0.6, preload: true }),
+    promote: new Howl({ src: ['/assets/sounds/promote.mp3'], volume: 0.5, preload: true }),
+    gameStart: new Howl({ src: ['/assets/sounds/move-self.mp3'], volume: 0.4, preload: true }),
+    gameEnd: new Howl({ src: ['/assets/sounds/move-check.mp3'], volume: 0.6, preload: true }),
+};
+
+// ─── Sound Selection ─────────────────────────────────────────────────────────
+
+/**
+ * Determines which sound to play for a given move SAN notation.
  */
 function getSoundForMove(san: string): SoundKey {
-    if (san.includes('+') || san.includes('#')) return 'moveCheck';
+    if (san.includes('#')) return 'gameEnd';
+    if (san.includes('+')) return 'moveCheck';
     if (san.includes('x')) return 'capture';
     if (san === 'O-O' || san === 'O-O-O') return 'castle';
     if (san.includes('=')) return 'promote';
     return 'moveSelf';
 }
 
+// ─── Hook ────────────────────────────────────────────────────────────────────
+
 /**
  * Shared audio hook that auto-plays chess sounds when board changes.
- * Previously duplicated in OnlineMatch and ComputerMatch pages.
- * 
- * @param controller - The board controller to watch for changes
+ * Uses Howler.js for reliable cross-platform audio (including iOS first-play).
+ *
+ * Subscribes to `currentNodeId` from the Zustand store so it reacts
+ * to every move and history navigation.
+ *
+ * @param controller - The board controller (unused directly, kept for API compat)
  * @param enabled - Whether audio is active (false during lobby state etc.)
  */
 export function useChessAudio(controller: BoardController | null, enabled: boolean = true) {
-    const audioCache = useRef<Record<string, HTMLAudioElement>>({});
     const lastNodeId = useRef<string | null>(null);
 
-    // Preload all sound files on mount
-    useEffect(() => {
-        Object.entries(SOUND_URLS).forEach(([key, url]) => {
-            const audio = new Audio(url);
-            audio.preload = 'auto';
-            audioCache.current[key] = audio;
-        });
-    }, []);
+    // Read currentNodeId and mainLine from store (reactive subscriptions)
+    const currentNodeId = useBoardStore((s) => s.currentNodeId);
+    const mainLine = useBoardStore((s) => s.mainLine);
 
     const playSound = useCallback((soundKey: SoundKey) => {
-        const cachedAudio = audioCache.current[soundKey];
-        if (cachedAudio) {
-            const clone = cachedAudio.cloneNode() as HTMLAudioElement;
-            clone.volume = 0.5;
-            clone.play().catch((e) => console.warn('Audio play blocked:', e));
-        }
-    }, []);
+        if (!enabled) return;
+        sounds[soundKey].play();
+    }, [enabled]);
 
     // Auto-play sounds when the current node changes
     useEffect(() => {
         if (!controller || !enabled) return;
 
-        const currentNodeId = controller.getCurrentNodeId();
-        if (currentNodeId !== lastNodeId.current) {
+        if (currentNodeId && currentNodeId !== lastNodeId.current) {
             lastNodeId.current = currentNodeId;
-            
-            // Get the current move's SAN from the main line
-            const mainLine = controller.getMainLine();
+
+            // Find the current move's SAN from the main line
             const currentNode = mainLine.find((n) => n.id === currentNodeId);
             if (currentNode?.move?.san) {
                 playSound(getSoundForMove(currentNode.move.san));
             }
         }
-    }, [controller, enabled, playSound]);
+    }, [controller, enabled, playSound, currentNodeId, mainLine]);
 
     return { playSound };
 }

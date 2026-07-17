@@ -348,6 +348,9 @@ export class OnlineBoardController implements BoardController {
             this.app.events.on('PREMOVE_QUEUED', callback),
             this.app.events.on('SQUARE_SELECTED', callback),
             this.app.events.on('SQUARE_DESELECTED', callback),
+            this.app.events.on('ANNOTATION_ADDED', callback),
+            this.app.events.on('ANNOTATION_REMOVED', callback),
+            this.app.events.on('ANNOTATIONS_CLEARED', callback),
         ];
         return () => unsubs.forEach((unsub) => unsub());
     }

@@ -55,6 +55,9 @@ export function Board({ controller }: BoardProps) {
     const storeValidDests = useBoardStore((s) => s.validDestinations);
     const storePremoves = useBoardStore((s) => s.premoves);
     const storeTurn = useBoardStore((s) => s.turn);
+    const storeAnnotations = useBoardStore((s) => s.annotations);
+    const storeEffects = useBoardStore((s) => s.effects);
+    const storeCanRedo = useBoardStore((s) => s.canRedo);
 
     // ─── Pieces Reconciliation ───────────────────────────────────────────────
     const stablePieces = useChessPieces(controller);
@@ -387,8 +390,7 @@ export function Board({ controller }: BoardProps) {
         }))
         : [];
 
-    const coreAnnotations = controller.getAnnotations();
-    const mappedArrows = coreAnnotations
+    const mappedArrows = storeAnnotations
         .filter((a): a is Extract<typeof a, { type: 'arrow' }> => a.type === 'arrow')
         .map((a) => ({
             id: String(a.id),
@@ -397,7 +399,7 @@ export function Board({ controller }: BoardProps) {
             color: a.color === 'green' ? undefined : a.color,
         }));
 
-    const mappedHighlights = coreAnnotations
+    const mappedHighlights = storeAnnotations
         .filter((a): a is Extract<typeof a, { type: 'highlight' }> => a.type === 'highlight')
         .map((a) => ({
             id: String(a.id),
@@ -407,7 +409,10 @@ export function Board({ controller }: BoardProps) {
         }));
 
     const lastMoveVisual = controller.getLastMove();
-    const effects = controller.getActiveEffects();
+
+    // Effects: only show game-over effects when viewing the FINAL position.
+    // If the user navigated backwards (canRedo === true), hide effects.
+    const effects = storeCanRedo ? [] : storeEffects;
 
     // ─── Render ──────────────────────────────────────────────────────────────
     return (
