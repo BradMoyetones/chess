@@ -1,3 +1,9 @@
+---
+'chess-test': major
+'server': major
+'@chess-fw/core': minor
+---
+
 # @chess-fw/core — Changelog
 
 ## v2.1.0 — Enterprise Refactor (2026-07-17)
@@ -60,18 +66,6 @@
 
 #### Evento `VARIATION_SELECTED`
 - Ahora se emite correctamente en `goToMove()` cuando se navega fuera de la línea principal
-
-### 🖥️ Frontend (chess-test)
-
-#### Fix crítico: Reactividad Zustand ↔ Board.tsx
-- `Board.tsx` ahora lee `selectedSquare`, `validDestinations` y `premoves` del **Zustand store** (no directamente del controller)
-- Se agregaron `SQUARE_SELECTED` y `SQUARE_DESELECTED` a `onBoardChange()` en los 3 adapters (Online, Bot, Analysis)
-- `useBoardStore.syncFromController()` usa `controller.getValidDestinations()` (InteractionManager) en vez de `controller.getLegalDestinations()`
-- Esto corrige: destinos no visibles al click, highlights fantasma, y la aparente falta de emisión de movimientos online
-
-#### Cancelación de premoves desde UI
-- Left click en el tablero limpia premoves activos
-- Right click en el tablero limpia premoves activos (ya existente)
 
 ### 📦 Exports nuevos
 - `GameResult` (tipo)
