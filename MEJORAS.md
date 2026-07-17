@@ -173,3 +173,152 @@ src/modules/
     └── utils/
         └── coordinates.ts                    ← Utilidades centralizadas
 ```
+
+---
+
+# 🐛 Bug Fix Sprint — Walkthrough
+
+## Resumen
+
+Se corrigieron 4 categorías de bugs reportados, con 1 causa raíz que explicaba la mayoría de los síntomas visibles.
+
+---
+
+## Fix 2A: Zustand Re-render (CAUSA RAÍZ) 
+
+### El problema
+`Board.tsx` leía `selectedSquare`, `validDestinations`, y `premoves` **directamente del controller** (imperativo) pero solo se re-renderizaba cuando campos del Zustand store cambiaban (`orientation`, `isGameOver`, `isInteractive`). Al seleccionar una pieza, ninguno de esos campos cambiaba → **React nunca re-renderizaba** → destinos no aparecían → movimientos no se podían completar.
+
+### La solución (3 partes)
+
+#### 1. Agregar eventos de selección al `onBoardChange`
+
+```diff
+ // En los 3 adapters: Online, Bot, Analysis
+ onBoardChange(callback: () => void): () => void {
+     const unsubs = [
+         this.app.events.on('BOARD_UPDATED', callback),
+         this.app.events.on('PREMOVE_CANCELLED', callback),
+         this.app.events.on('PREMOVE_QUEUED', callback),
++        this.app.events.on('SQUARE_SELECTED', callback),
++        this.app.events.on('SQUARE_DESELECTED', callback),
+     ];
+     return () => unsubs.forEach((unsub) => unsub());
+ }
+```
+
+#### 2. Zustand store: usar `getValidDestinations()` del InteractionManager
+
+```diff
+ // useBoardStore.ts
+- const newLegal = newSelected ? controller.getLegalDestinations(newSelected) : [];
+- const newPremoveMoves = newSelected ? controller.getPremoveDestinations(newSelected) : [];
++ const newValidDests = newSelected ? controller.getValidDestinations() : [];
+```
+
+Esto garantiza que el store contenga **premove destinations** cuando no es tu turno.
+
+#### 3. Board.tsx: leer del store, no del controller
+
+```diff
+ // Board.tsx — subscriptions
++ const selectedSquareAlg = useBoardStore((s) => s.selectedSquare);
++ const storeValidDests = useBoardStore((s) => s.validDestinations);
++ const storePremoves = useBoardStore((s) => s.premoves);
+
+ // Derived state — ahora reactivo
+- const selectedSquareAlg = controller.getSelectedSquare();
+- const validDestinations = ... controller.getValidDestinations() ...
++ const validDestinations = ... storeValidDests.map(...) ...
+```
+
+### Archivos modificados
+- [OnlineBoardController.ts](./apps/chess-test/src/modules/game/online/adapters/OnlineBoardController.ts)
+- [BotBoardController.ts](./apps/chess-test/src/modules/game/computer/adapters/BotBoardController.ts)
+- [AnalysisBoardController.ts](./apps/chess-test/src/modules/game/analysis/adapters/AnalysisBoardController.ts)
+- [useBoardStore.ts](./apps/chess-test/src/modules/board/ui/store/useBoardStore.ts)
+- [Board.tsx](./apps/chess-test/src/modules/board/ui/components/Board.tsx)
+
+---
+
+## Fix 2B/2C: Premove Cancellation
+
+### El problema
+- Click en casilla vacía no cancelaba premoves
+- Seleccionar otra pieza propia no cancelaba premoves
+- Left click en el tablero no limpiaba premoves
+
+### La solución
+
+#### InteractionManager.ts — 2 cambios en `selectSquare()`
+
+```diff
+ // Caso 2: Seleccionar pieza propia en turno
+ if (mode !== 'PLAY' || piece.color === turn) {
++    if (this.premoveQueue.length > 0) {
++        this.clearPremoves();
++    }
+     this.selectedSquare = square;
+
+ // Caso 3: Click en vacío
++if (this.premoveQueue.length > 0) {
++    this.clearPremoves();
++}
+ this.clearSelection();
+```
+
+#### Board.tsx — `handleBoardMouseDown` left click
+
+```diff
+ if (e.button === 0) {
+     controller.clearAnnotations();
++    controller.clearPremoves();
+     syncBoard();
+ }
+```
+
+### Archivos modificados
+- [InteractionManager.ts](./packages/core/src/Managers/InteractionManager.ts)
+- [Board.tsx](./apps/chess-test/src/modules/board/ui/components/Board.tsx)
+
+---
+
+## Fix 1: Smart Premove Destinations
+
+### El problema
+`getPremoveDestinationsFor` agregaba capturas diagonales de peón a casillas vacías **incondicionalmente**, causando falsos positivos (e.g., c2→b3/d3 al inicio cuando ninguna pieza rival puede llegar allí).
+
+### La solución: Filtrado por alcanzabilidad del rival
+
+```
+Para cada diagonal vacía del peón:
+  1. Calcular movimientos legales del rival (chess.moves())
+  2. Construir Set de casillas alcanzables
+  3. Solo agregar diagonal si rivalReachable.has(diag) === true
+```
+
+**Rendimiento**: O(1 clone + ~30 comparaciones) — insignificante.
+
+### Archivos modificados
+- [ChessEngine.ts](./packages/core/src/Core/ChessEngine.ts) — método `getPremoveDestinationsFor()`
+
+---
+
+## Fix 3: Online Sockets
+
+### Diagnóstico
+El subagente de investigación confirmó que **la cadena de sockets es correcta**:
+- Asignación de colores: servidor asigna `hostColor` y `guestColor = opuesto(hostColor)` ✅
+- Emisión: `handleSquareClick → onMoveEmit → socket.emit('move')` ✅
+- Recepción: `socket.on('move_received') → attemptMove → BOARD_UPDATED → syncBoard` ✅
+
+**El problema visible era consecuencia del Fix 2A**: sin re-render, el usuario no podía ver destinos → no podía completar click-to-move → parecía que los movimientos no se emitían.
+
+---
+
+## Verificación
+
+| Test | Resultado |
+|------|-----------|
+| `pnpm --filter @chess-fw/core test` | 100/100 ✅ |
+| `npx tsc -b` (frontend) | 0 errores ✅ |

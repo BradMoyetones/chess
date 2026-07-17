@@ -51,6 +51,9 @@ export function Board({ controller }: BoardProps) {
     const flipped = useBoardStore((s) => s.orientation === 'b');
     const isGameOver = useBoardStore((s) => s.isGameOver);
     const isInteractive = useBoardStore((s) => s.isInteractive);
+    const selectedSquareAlg = useBoardStore((s) => s.selectedSquare);
+    const storeValidDests = useBoardStore((s) => s.validDestinations);
+    const storePremoves = useBoardStore((s) => s.premoves);
 
     // ─── Pieces Reconciliation ───────────────────────────────────────────────
     const stablePieces = useChessPieces(controller);
@@ -213,7 +216,7 @@ export function Board({ controller }: BoardProps) {
             if (targetSquare) {
                 if (targetSquare === annotationStartSquare.current) {
                     const existing = controller.getAnnotations().find(
-                        (a) => a.type === 'highlight' && a.square === targetSquare,
+                        (a: any) => a.type === 'highlight' && a.square === targetSquare,
                     );
                     if (existing) {
                         controller.removeAnnotation(existing.id);
@@ -235,8 +238,11 @@ export function Board({ controller }: BoardProps) {
     const handleBoardMouseDown = (e: React.MouseEvent) => {
         if (e.button === 0) {
             controller.clearAnnotations();
+            controller.clearPremoves();
             syncBoard();
         } else if (e.button === 2) {
+            // Right click cancels premoves (chess.com behavior)
+            controller.clearPremoves();
             const chessboard = chessboardRef.current;
             if (chessboard) {
                 const boardRect = chessboard.getBoundingClientRect();
@@ -246,66 +252,43 @@ export function Board({ controller }: BoardProps) {
                     window.addEventListener('mouseup', annotationDropWrapper);
                 }
             }
+            syncBoard();
         }
     };
 
     // ─── Square Click (click-to-move) ────────────────────────────────────────
+    // Delegates to controller.handleSquareClick which uses app.click() internally.
+    // Promotion must be intercepted BEFORE the click reaches the InteractionManager.
     const safeHandleSquareClick = useCallback(
         (algebraic: string) => {
-            if (!isInteractive) return;
+            if (!isInteractive && !controller.getSelectedSquare()) return;
 
-            const piece = controller.getPieceAt(algebraic);
-            const orientation = controller.getOrientation();
-
-            if (piece && piece.color !== orientation) {
-                const selectedSq = controller.getSelectedSquare();
-                if (selectedSq) {
-                    const dests = controller.getLegalDestinations(selectedSq);
-                    if (!dests.includes(algebraic)) return;
-                } else {
-                    return;
-                }
-            }
-
-            if (controller.getSelectedSquare() === algebraic) {
-                controller.clearSelection();
-                syncBoard();
-                return;
-            }
-
-            // Check promotion before making move
+            // Intercept promotion: if selected square -> algebraic is a promotion move,
+            // show the dialog instead of delegating to InteractionManager
             const selectedSq = controller.getSelectedSquare();
-            if (selectedSq && controller.isPromotionMove(selectedSq, algebraic)) {
-                const selectedPiece = controller.getPieceAt(selectedSq);
-                if (selectedPiece) {
-                    const coords = toCoords(algebraic);
-                    if (coords) {
-                        const dropX = flipped ? 7 - coords.x : coords.x;
-                        const dropY = flipped ? 7 - coords.y : coords.y;
-                        setPendingPromotion({
-                            from: selectedSq,
-                            to: algebraic,
-                            color: selectedPiece.color,
-                            dropX,
-                            dropY,
-                        });
-                        return;
+            if (selectedSq) {
+                const validDests = controller.getValidDestinations();
+                if (validDests.includes(algebraic) && controller.isPromotionMove(selectedSq, algebraic)) {
+                    const selectedPiece = controller.getPieceAt(selectedSq);
+                    if (selectedPiece) {
+                        const coords = toCoords(algebraic);
+                        if (coords) {
+                            const dropX = flipped ? 7 - coords.x : coords.x;
+                            const dropY = flipped ? 7 - coords.y : coords.y;
+                            setPendingPromotion({
+                                from: selectedSq,
+                                to: algebraic,
+                                color: selectedPiece.color,
+                                dropX,
+                                dropY,
+                            });
+                            return;
+                        }
                     }
                 }
             }
 
-            // Try making the move via click
-            if (selectedSq) {
-                const dests = controller.getLegalDestinations(selectedSq);
-                if (dests.includes(algebraic)) {
-                    controller.makeMove(selectedSq, algebraic);
-                    syncBoard();
-                    return;
-                }
-            }
-
-            // Select the new square
-            controller.selectSquare(algebraic);
+            controller.handleSquareClick(algebraic);
             syncBoard();
         },
         [controller, isInteractive, flipped, syncBoard],
@@ -371,13 +354,12 @@ export function Board({ controller }: BoardProps) {
         handleAnnotationDropRef.current = handleAnnotationDrop;
     });
 
-    // ─── Derived Visual State ────────────────────────────────────────────────
-    const selectedSquareAlg = controller.getSelectedSquare();
-    const selectedPiece = selectedSquareAlg ? controller.getPieceAt(selectedSquareAlg) : null;
-    const isSelectedTurn = selectedPiece ? selectedPiece.color === controller.getTurn() : false;
+    // ─── Derived Visual State (from Zustand store, NOT from controller) ─────
+    // selectedSquareAlg, storeValidDests, storePremoves are read from store
+    // subscriptions above — this guarantees React re-renders when they change.
 
-    const validDestinations = isSelectedTurn && !isGameOver
-        ? (controller.getLegalDestinations(selectedSquareAlg!) || []).map((sq) => {
+    const validDestinations = selectedSquareAlg && !isGameOver
+        ? storeValidDests.map((sq) => {
             const coords = toCoords(sq);
             return {
                 x: coords!.x,
@@ -388,7 +370,7 @@ export function Board({ controller }: BoardProps) {
         : [];
 
     const premoves = !isGameOver
-        ? controller.getPremoves().map((pm) => ({
+        ? storePremoves.map((pm) => ({
             from: toCoords(pm.from)!,
             to: toCoords(pm.to)!,
         }))
@@ -519,19 +501,13 @@ export function Board({ controller }: BoardProps) {
                                 onMouseDown={(e) => {
                                     if (e.button === 0) {
                                         safeHandleSquareClick(piece.square);
-                                        const dests = selectedSquareAlg && isSelectedTurn
-                                            ? controller.getLegalDestinations(selectedSquareAlg)
-                                            : [];
-                                        const isHint = dests.includes(piece.square);
+                                        const isHint = storeValidDests.includes(piece.square);
                                         if (!isHint) grabPiece(e, piece.square);
                                     }
                                 }}
                                 onTouchStart={(e) => {
                                     safeHandleSquareClick(piece.square);
-                                    const dests = selectedSquareAlg && isSelectedTurn
-                                        ? controller.getLegalDestinations(selectedSquareAlg)
-                                        : [];
-                                    const isHint = dests.includes(piece.square);
+                                    const isHint = storeValidDests.includes(piece.square);
                                     if (!isHint) grabPiece(e, piece.square);
                                 }}
                             >

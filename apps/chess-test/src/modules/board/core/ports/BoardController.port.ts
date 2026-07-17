@@ -118,10 +118,17 @@ export interface BoardController {
 
     // === Selection & Premoves ===
     getSelectedSquare(): string | null;
+    /** Returns the valid destinations for the currently selected square.
+     *  This includes premove destinations when it's not the player's turn. */
+    getValidDestinations(): string[];
     selectSquare(square: string): void;
     clearSelection(): void;
     getPremoves(): Premove[];
     clearPremoves(): void;
+    /** High-level click handler that delegates to InteractionManager.
+     *  Handles: select, move, premove queue, deselect — all in one call.
+     *  Returns the move data if a move was made (for socket emission). */
+    handleSquareClick(square: string): MoveData | null;
 
     // === Board Data ===
     getPieceAt(square: string): PieceData | null;

@@ -72,17 +72,21 @@ export class InteractionManager {
             return;
         }
 
-        // Caso 2: Click en una pieza -> seleccionar
+        // Caso 2: Click en una pieza → seleccionar
         const piece = this.engine.getPieceAt(square);
         if (piece) {
             const turn = this.engine.getTurn();
             const mode = this.engine.getMode();
 
             if (mode !== 'PLAY' || piece.color === turn) {
+                // Selecting own piece in turn → cancel any pending premoves
+                if (this.premoveQueue.length > 0) {
+                    this.clearPremoves();
+                }
                 this.selectedSquare = square;
                 this.validDestinations = this.engine.getLegalMovesFor(square);
             } else {
-                // Es PLAY pero no es su turno -> Pre-move selection
+                // Es PLAY pero no es su turno → Pre-move selection
                 this.selectedSquare = square;
                 this.validDestinations = this.engine.getPremoveDestinationsFor(square);
             }
@@ -94,7 +98,10 @@ export class InteractionManager {
             return;
         }
 
-        // Caso 3: Click en vacío sin selección previa -> deseleccionar
+        // Caso 3: Click en vacío → deseleccionar y cancelar premoves
+        if (this.premoveQueue.length > 0) {
+            this.clearPremoves();
+        }
         this.clearSelection();
     }
 

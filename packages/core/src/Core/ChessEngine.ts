@@ -412,7 +412,16 @@ export class ChessEngine {
     }
 
     /**
-     * Retorna destinos de pre-move (pseudo-legales asumiendo que fuera su turno).
+     * Retorna destinos de pre-move "inteligentes" (estilo chess.com/lichess).
+     * 
+     * Para la pieza seleccionada, calcula destinos pseudo-legales:
+     * - Movimientos normales con turno invertido (chess.js)
+     * - Peones: capturas diagonales a casillas vacías SOLO SI el rival puede
+     *   mover una pieza allí en su turno (evita falsos positivos como b3/d3
+     *   en la apertura cuando ninguna pieza rival puede llegar allí)
+     * 
+     * Rendimiento: O(1 clone + ~30 rival moves) = insignificante.
+     * Si el premove resulta ilegal al ejecutarse, se cancela automáticamente.
      */
     public getPremoveDestinationsFor(square: string): string[] {
         const piece = this.chess.get(square as Square);
@@ -422,11 +431,49 @@ export class ChessEngine {
             return this.getLegalMovesFor(square);
         }
         
-        // Clone chess instance to avoid corrupting the live game history
+        // Clone position and set turn to compute pseudo-legal moves
         const tempChess = new Chess(this.chess.fen());
         tempChess.setTurn(piece.color);
-        const moves = tempChess.moves({ square: square as Square, verbose: true });
-        return (moves as Move[]).map(m => m.to);
+        
+        const legalMoves = tempChess.moves({ square: square as Square, verbose: true });
+        const destinations = new Set<string>((legalMoves as Move[]).map(m => m.to));
+        
+        // Smart pawn premove captures:
+        // Add diagonal captures to EMPTY squares only if the rival can reach them
+        if (piece.type === 'p') {
+            const file = square.charCodeAt(0) - 'a'.charCodeAt(0);
+            const rank = parseInt(square[1]);
+            const direction = piece.color === 'w' ? 1 : -1;
+            const captureRank = rank + direction;
+            
+            if (captureRank >= 1 && captureRank <= 8) {
+                // Compute rival's reachable squares (current turn = rival's turn)
+                const rivalMoves = this.chess.moves({ verbose: true }) as Move[];
+                const rivalReachable = new Set<string>(rivalMoves.map(m => m.to));
+                
+                const diagonals: string[] = [];
+                if (file > 0) {
+                    diagonals.push(String.fromCharCode('a'.charCodeAt(0) + file - 1) + captureRank);
+                }
+                if (file < 7) {
+                    diagonals.push(String.fromCharCode('a'.charCodeAt(0) + file + 1) + captureRank);
+                }
+                
+                for (const diag of diagonals) {
+                    const occupant = this.chess.get(diag as Square);
+                    if (occupant) {
+                        // Already occupied — normal capture already in destinations
+                        continue;
+                    }
+                    // Empty square — only add if rival can move a piece there
+                    if (rivalReachable.has(diag)) {
+                        destinations.add(diag);
+                    }
+                }
+            }
+        }
+        
+        return Array.from(destinations);
     }
 
     /** Retorna TODOS los movimientos legales con datos completos */

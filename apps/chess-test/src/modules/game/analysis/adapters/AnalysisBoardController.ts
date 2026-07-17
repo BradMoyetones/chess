@@ -3,6 +3,7 @@ import { ChessApp } from '@chess-fw/core';
 import type {
     BoardController,
     MoveResult,
+    MoveData,
     Annotation,
     BoardEffect,
     Premove,
@@ -100,6 +101,10 @@ export class AnalysisBoardController implements BoardController {
         return this.app.interaction.getSelectedSquare();
     }
 
+    getValidDestinations(): string[] {
+        return this.app.interaction.getValidDestinations();
+    }
+
     selectSquare(square: string): void {
         this.app.interaction.selectSquare(square);
     }
@@ -114,6 +119,24 @@ export class AnalysisBoardController implements BoardController {
 
     clearPremoves(): void {
         // No-op in analysis
+    }
+
+    handleSquareClick(square: string): MoveData | null {
+        if (this.app.interaction.getSelectedSquare() === square) {
+            this.app.interaction.clearSelection();
+            return null;
+        }
+
+        const fenBefore = this.app.engine.getFen();
+        this.app.click(square);
+        const fenAfter = this.app.engine.getFen();
+
+        if (fenBefore !== fenAfter) {
+            const lastMove = this.app.engine.getLastMove();
+            return lastMove as unknown as MoveData | null;
+        }
+
+        return null;
     }
 
     getPieceAt(square: string): PieceData | null {
@@ -186,6 +209,8 @@ export class AnalysisBoardController implements BoardController {
     onBoardChange(callback: () => void): () => void {
         const unsubs = [
             this.app.events.on('BOARD_UPDATED', callback),
+            this.app.events.on('SQUARE_SELECTED', callback),
+            this.app.events.on('SQUARE_DESELECTED', callback),
         ];
         return () => unsubs.forEach((unsub) => unsub());
     }

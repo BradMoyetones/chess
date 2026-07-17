@@ -134,6 +134,10 @@ export class OnlineBoardController implements BoardController {
         return this.app.interaction.getSelectedSquare();
     }
 
+    getValidDestinations(): string[] {
+        return this.app.interaction.getValidDestinations();
+    }
+
     selectSquare(square: string): void {
         this.app.interaction.selectSquare(square);
     }
@@ -148,6 +152,46 @@ export class OnlineBoardController implements BoardController {
 
     clearPremoves(): void {
         this.app.interaction.clearPremoves();
+    }
+
+    handleSquareClick(square: string): MoveData | null {
+        if (this.isGameOver()) return null;
+        if (this.app.engine.canRedo()) return null;
+
+        // Guard: don't allow clicking enemy pieces unless there's a selected square with valid destinations
+        const piece = this.app.engine.getPieceAt(square);
+        if (piece && piece.color !== this.playerColor) {
+            const selectedSq = this.app.interaction.getSelectedSquare();
+            if (selectedSq) {
+                const validDests = this.app.interaction.getValidDestinations();
+                if (!validDests.includes(square)) {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        }
+
+        // Deselect if clicking the same square
+        if (this.app.interaction.getSelectedSquare() === square) {
+            this.app.interaction.clearSelection();
+            return null;
+        }
+
+        const fenBefore = this.app.engine.getFen();
+        this.app.click(square);
+        const fenAfter = this.app.engine.getFen();
+
+        // If FEN changed, a move was made — emit it
+        if (fenBefore !== fenAfter) {
+            const lastMove = this.app.engine.getLastMove();
+            if (lastMove) {
+                this.onMoveEmit(lastMove as unknown as MoveData);
+                return lastMove as unknown as MoveData;
+            }
+        }
+
+        return null;
     }
 
     // === Board Data ===
@@ -301,6 +345,8 @@ export class OnlineBoardController implements BoardController {
             this.app.events.on('BOARD_UPDATED', callback),
             this.app.events.on('PREMOVE_CANCELLED', callback),
             this.app.events.on('PREMOVE_QUEUED', callback),
+            this.app.events.on('SQUARE_SELECTED', callback),
+            this.app.events.on('SQUARE_DESELECTED', callback),
         ];
         return () => unsubs.forEach((unsub) => unsub());
     }

@@ -16,8 +16,9 @@ interface BoardStoreState {
     boardGrid: SquareData[][];
     orientation: 'w' | 'b';
     selectedSquare: string | null;
-    legalMoves: string[];
-    premoveMoves: string[];
+    /** Valid destinations for the selected square.
+     *  Comes from InteractionManager — includes premove destinations when not your turn. */
+    validDestinations: string[];
     lastMove: { from: string; to: string } | null;
     annotations: Annotation[];
     effects: BoardEffect[];
@@ -39,9 +40,6 @@ interface BoardStoreState {
     /** Reads all visual state from the controller and updates the store.
      *  Call this after every user interaction or board event. */
     syncFromController: (controller: BoardController) => void;
-
-    /** Partial sync — only update selection-related state (faster for click/drag) */
-    syncSelection: (controller: BoardController) => void;
 }
 
 // ─── Shallow equality for arrays ─────────────────────────────────────────────
@@ -62,8 +60,7 @@ export const useBoardStore = create<BoardStoreState>()(
         boardGrid: [],
         orientation: 'w',
         selectedSquare: null,
-        legalMoves: [],
-        premoveMoves: [],
+        validDestinations: [],
         lastMove: null,
         annotations: [],
         effects: [],
@@ -81,8 +78,7 @@ export const useBoardStore = create<BoardStoreState>()(
             const newGrid = controller.getBoardGrid();
             const newOrientation = controller.getOrientation();
             const newSelected = controller.getSelectedSquare();
-            const newLegal = newSelected ? controller.getLegalDestinations(newSelected) : [];
-            const newPremoveMoves = newSelected ? controller.getPremoveDestinations(newSelected) : [];
+            const newValidDests = newSelected ? controller.getValidDestinations() : [];
             const newLastMove = controller.getLastMove();
             const newAnnotations = controller.getAnnotations();
             const newEffects = controller.getActiveEffects();
@@ -110,10 +106,9 @@ export const useBoardStore = create<BoardStoreState>()(
                     updates.orientation = newOrientation;
                     hasChanges = true;
                 }
-                if (state.selectedSquare !== newSelected) {
+                if (state.selectedSquare !== newSelected || !arraysEqual(state.validDestinations, newValidDests)) {
                     updates.selectedSquare = newSelected;
-                    updates.legalMoves = newLegal;
-                    updates.premoveMoves = newPremoveMoves;
+                    updates.validDestinations = newValidDests;
                     hasChanges = true;
                 }
                 if (state.lastMove?.from !== newLastMove?.from || state.lastMove?.to !== newLastMove?.to) {
@@ -161,23 +156,6 @@ export const useBoardStore = create<BoardStoreState>()(
                 return hasChanges ? updates : state;
             });
         },
-
-        syncSelection: (controller: BoardController) => {
-            const newSelected = controller.getSelectedSquare();
-            const newLegal = newSelected ? controller.getLegalDestinations(newSelected) : [];
-            const newPremoveMoves = newSelected ? controller.getPremoveDestinations(newSelected) : [];
-
-            set((state) => {
-                if (state.selectedSquare === newSelected && arraysEqual(state.legalMoves, newLegal)) {
-                    return state;
-                }
-                return {
-                    selectedSquare: newSelected,
-                    legalMoves: newLegal,
-                    premoveMoves: newPremoveMoves,
-                };
-            });
-        },
     }))
 );
 
@@ -187,7 +165,7 @@ export const useBoardStore = create<BoardStoreState>()(
 export const useBoardGrid = () => useBoardStore((s) => s.boardGrid);
 export const useBoardOrientation = () => useBoardStore((s) => s.orientation);
 export const useSelectedSquare = () => useBoardStore((s) => s.selectedSquare);
-export const useLegalMoves = () => useBoardStore((s) => s.legalMoves);
+export const useValidDestinations = () => useBoardStore((s) => s.validDestinations);
 export const useLastMoveSquares = () => useBoardStore((s) => s.lastMove);
 export const useBoardAnnotations = () => useBoardStore((s) => s.annotations);
 export const useBoardEffects = () => useBoardStore((s) => s.effects);
