@@ -79,10 +79,6 @@ export class InteractionManager {
             const mode = this.engine.getMode();
 
             if (mode !== 'PLAY' || piece.color === turn) {
-                // Selecting own piece in turn → cancel any pending premoves
-                if (this.premoveQueue.length > 0) {
-                    this.clearPremoves();
-                }
                 this.selectedSquare = square;
                 this.validDestinations = this.engine.getLegalMovesFor(square);
             } else {

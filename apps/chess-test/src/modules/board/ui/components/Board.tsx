@@ -54,6 +54,7 @@ export function Board({ controller }: BoardProps) {
     const selectedSquareAlg = useBoardStore((s) => s.selectedSquare);
     const storeValidDests = useBoardStore((s) => s.validDestinations);
     const storePremoves = useBoardStore((s) => s.premoves);
+    const storeTurn = useBoardStore((s) => s.turn);
 
     // ─── Pieces Reconciliation ───────────────────────────────────────────────
     const stablePieces = useChessPieces(controller);
@@ -237,8 +238,11 @@ export function Board({ controller }: BoardProps) {
     // ─── Board Mouse Down (left click / right click) ─────────────────────────
     const handleBoardMouseDown = (e: React.MouseEvent) => {
         if (e.button === 0) {
+            // Left click: only clear annotations. Do NOT clear premoves here!
+            // Premove clearing is handled by InteractionManager (empty square click)
+            // and by right-click below. Clearing here would kill premove chaining
+            // because events bubble from piece → board container.
             controller.clearAnnotations();
-            controller.clearPremoves();
             syncBoard();
         } else if (e.button === 2) {
             // Right click cancels premoves (chess.com behavior)
@@ -358,7 +362,14 @@ export function Board({ controller }: BoardProps) {
     // selectedSquareAlg, storeValidDests, storePremoves are read from store
     // subscriptions above — this guarantees React re-renders when they change.
 
-    const validDestinations = selectedSquareAlg && !isGameOver
+    // UX per turn: Only show valid destination dots when it's the player's turn.
+    // When it's the rival's turn, interaction still works for premoves but the
+    // visual dots are hidden. The player selects a piece → no dots shown →
+    // clicks a destination square → premove is queued. This matches chess.com UX.
+    const playerColor = controller.getOrientation();
+    const isPlayerTurn = storeTurn === playerColor;
+
+    const validDestinations = selectedSquareAlg && !isGameOver && isPlayerTurn
         ? storeValidDests.map((sq) => {
             const coords = toCoords(sq);
             return {

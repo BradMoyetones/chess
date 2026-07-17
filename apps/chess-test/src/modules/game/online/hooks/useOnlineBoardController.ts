@@ -42,6 +42,7 @@ export function useOnlineBoardController({
 
     // Update mutable state on every render
     controllerRef.current.update({
+        playerColor,
         isGameOver,
         whiteTime,
         blackTime,

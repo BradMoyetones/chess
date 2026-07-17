@@ -47,6 +47,7 @@ export class OnlineBoardController implements BoardController {
     }
 
     update(config: Partial<OnlineBoardControllerConfig>): void {
+        if (config.playerColor !== undefined) this.playerColor = config.playerColor;
         if (config.isGameOver !== undefined) this._isGameOver = config.isGameOver;
         if (config.whiteTime !== undefined) this.whiteTime = config.whiteTime ?? null;
         if (config.blackTime !== undefined) this.blackTime = config.blackTime ?? null;
