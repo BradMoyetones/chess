@@ -74,6 +74,10 @@ export type AppEvents = {
     'VARIATION_CREATED': { parentNodeId: string; moveIndex: number };
     'VARIATION_SELECTED': { nodeId: string };
 
+    // ─── Draw/Resign Protocol ───
+    'DRAW_OFFERED': {};
+    'DRAW_DECLINED': {};
+
     // ─── General ───
     'BOARD_UPDATED': {};
 };

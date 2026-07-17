@@ -14,6 +14,7 @@ export class HeadlessBoard {
     private engine: ChessEngine;
     private interactionManager: InteractionManager | null;
     private annotationManager: AnnotationManager | null;
+    private getOrientation: (() => 'w' | 'b') | null;
 
     private readonly FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     private readonly RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
@@ -29,11 +30,13 @@ export class HeadlessBoard {
         options?: {
             interactionManager?: InteractionManager;
             annotationManager?: AnnotationManager;
+            getOrientation?: () => 'w' | 'b';
         }
     ) {
         this.engine = engine;
         this.interactionManager = options?.interactionManager || null;
         this.annotationManager = options?.annotationManager || null;
+        this.getOrientation = options?.getOrientation || null;
     }
 
     // ═══════════════════════════════════════════
@@ -51,6 +54,8 @@ export class HeadlessBoard {
         const validDestinations = this.interactionManager?.getValidDestinations() || [];
         const annotations = this.annotationManager?.getAnnotations() || [];
         const gameTree = this.engine.getGameTree();
+        const captured = this.engine.getCapturedPieces();
+        const materialAdv = this.engine.getMaterialAdvantage();
 
         return {
             gameState: {
@@ -63,6 +68,8 @@ export class HeadlessBoard {
                 moveNumber: this.engine.getMoveNumber(),
                 fen: this.engine.getFen(),
                 mode: this.engine.getMode(),
+                boardOrientation: this.getOrientation ? this.getOrientation() : 'w',
+                result: this.engine.getResult(),
             },
             board: this.buildBoardGrid(lastMove, selectedSquare, validDestinations),
             visuals: {
@@ -78,6 +85,12 @@ export class HeadlessBoard {
                 moveCount: gameTree.getMainLine().length - 1,
                 currentIndex: gameTree.getCurrentNode().halfMoveIndex,
                 hasVariations: gameTree.hasVariations(),
+            },
+            material: {
+                capturedByWhite: captured.w,
+                capturedByBlack: captured.b,
+                whiteAdvantage: materialAdv.w,
+                blackAdvantage: materialAdv.b,
             },
         };
     }
@@ -146,4 +159,4 @@ export class HeadlessBoard {
 
         return grid;
     }
-}
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Crown, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBotMatch, type IEngineAdapter } from '@/hooks/use-bot-match';
@@ -6,59 +6,85 @@ import { useBotMatch, type IEngineAdapter } from '@/hooks/use-bot-match';
 import { BotLobbyPanel } from './components/bot-lobby-panel';
 import { LobbyBoard } from '../online/components/lobby-board';
 
-// Componentes agnósticos del online/[id]
-import { GameBoard } from '../online/[id]/components/game-board';
-import { PlayerInfoBar } from '../online/[id]/components/player-info-bar';
-import { GameHistoryPanel } from '../online/[id]/components/game-history-panel';
-import PGNButtonsNavigate from '../online/[id]/components/pgn-buttons-navigate';
-import { useChessAudio } from '@/hooks/use-chess-audio';
+// New modular imports
+import { Board } from '@/modules/board/ui/components/Board';
+import { PlayerInfoBar } from '@/modules/board/ui/components/PlayerInfoBar';
+import { GameHistoryPanel } from '@/modules/board/ui/components/GameHistoryPanel';
+import { PGNButtonsNavigate as PGNNavigation } from '@/modules/board/ui/components/PGNNavigation';
+import { useBotBoardController } from '@/modules/game/computer/hooks/useBotBoardController';
+import { useBoardSize } from '@/modules/board/ui/hooks/useBoardSize';
+import { useChessAudio } from '@/modules/board/ui/hooks/useChessAudio';
+import { computeMaterialAdvantage } from '@/modules/board/core/usecases/ComputeMaterial.usecase';
+
 import type { Player, BotConfig } from '@/types/game';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { StockfishAdapter, EventBus, type EvaluationData } from '@chess-fw/core';
 import { toast } from 'sonner';
-
-let localAdapterInstance: StockfishAdapter | null = null;
-
-const botSocket = io(import.meta.env.VITE_WS_URL);
-
-// Adaptador real que se comunica con el servidor vía WebSockets
-const socketEngineAdapter: IEngineAdapter = {
-    evaluate: async (fen: string, options?: BotConfig['engineOptions']): Promise<EvaluationData> => {
-        return new Promise((resolve, reject) => {
-            botSocket.emit('evaluate_bot_move', { fen, options }, (response: any) => {
-                if (response.success) {
-                    resolve(response.evaluation);
-                } else {
-                    reject(new Error(response.error));
-                }
-            });
-        });
-    }
-};
 
 export default function ComputerMatch() {
     const {
         app,
         boardSnapshot,
-        setBoardSnapshot,
         status,
         playerColor,
         serverTurn,
         timeControl,
         localWhiteTime,
         localBlackTime,
-        getMaterialAdvantage,
         botPlayer,
         startGame,
         endGame,
-        emitMove
     } = useBotMatch();
 
-    const { playSound } = useChessAudio();
-    const lastNodeId = useRef<string | null>(null);
-
-    const [boardSize, setBoardSize] = useState<number | null>(null);
     const mainRef = useRef<HTMLDivElement>(null);
+
+    // FIX: Socket scoped to component lifecycle, not module
+    const botSocketRef = useRef<Socket | null>(null);
+    if (!botSocketRef.current) {
+        botSocketRef.current = io(import.meta.env.VITE_WS_URL);
+    }
+
+    // FIX: Stockfish adapter scoped to component
+    const localAdapterRef = useRef<StockfishAdapter | null>(null);
+
+    // Cleanup socket and stockfish on unmount
+    useEffect(() => {
+        return () => {
+            botSocketRef.current?.close();
+            botSocketRef.current = null;
+            localAdapterRef.current?.destroy?.();
+            localAdapterRef.current = null;
+        };
+    }, []);
+
+    // Socket engine adapter (memoized, stable reference)
+    const socketEngineAdapter = useMemo<IEngineAdapter>(() => ({
+        evaluate: async (fen: string, options?: BotConfig['engineOptions']): Promise<EvaluationData> => {
+            return new Promise((resolve, reject) => {
+                botSocketRef.current?.emit('evaluate_bot_move', { fen, options }, (response: any) => {
+                    if (response.success) {
+                        resolve(response.evaluation);
+                    } else {
+                        reject(new Error(response.error));
+                    }
+                });
+            });
+        }
+    }), []);
+
+    // New: BoardController bridge
+    const isGameOver = status === 'game_over';
+    const controller = useBotBoardController({
+        app,
+        playerColor,
+        isGameOver,
+        whiteTime: localWhiteTime,
+        blackTime: localBlackTime,
+    });
+
+    // New: shared hooks replace duplicated code
+    const boardSize = useBoardSize(mainRef, status === 'playing' || status === 'game_over');
+    useChessAudio(controller, status !== 'lobby');
 
     type HintState = {
         fen: string;
@@ -68,52 +94,15 @@ export default function ComputerMatch() {
     } | null;
     const [hintState, setHintState] = useState<HintState>(null);
     const [currentAdapter, setCurrentAdapter] = useState<IEngineAdapter>(socketEngineAdapter);
+
     const hintColor = 'rgba(82, 176, 220, 0.8)';
-
-    useEffect(() => {
-        if (status !== 'playing' || !mainRef.current) return;
-        const observer = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                const { width, height } = entry.contentRect;
-                const minDimension = Math.min(width, height);
-                const roundedSize = Math.floor(minDimension / 8) * 8;
-                setBoardSize(roundedSize);
-            }
-        });
-        observer.observe(mainRef.current);
-        return () => observer.disconnect();
-    }, [status]);
-
-    // Audio Playback Sync
-    useEffect(() => {
-        if (status === 'lobby') return;
-        const currentNode = app.engine.getGameTree().getCurrentNode();
-        if (currentNode.id !== lastNodeId.current) {
-            lastNodeId.current = currentNode.id;
-            const move = currentNode.move;
-            if (move && move.san) {
-                if (move.san.includes('+') || move.san.includes('#')) {
-                    playSound('moveCheck');
-                } else if (move.san.includes('x')) {
-                    playSound('capture');
-                } else if (move.san === 'O-O' || move.san === 'O-O-O') {
-                    playSound('castle');
-                } else if (move.san.includes('=')) {
-                    playSound('promote');
-                } else {
-                    playSound('moveSelf');
-                }
-            }
-        }
-    }, [app, boardSnapshot, playSound, status]);
 
     useEffect(() => {
         if (hintState && hintState.fen !== app.engine.getFen()) {
             setHintState(null);
             app.annotations.clearAll();
-            setBoardSnapshot(app.getSnapshot());
         }
-    }, [boardSnapshot, hintState, app, setBoardSnapshot]);
+    }, [boardSnapshot, hintState, app]);
 
     if (status === 'lobby') {
         return (
@@ -134,20 +123,20 @@ export default function ComputerMatch() {
                                 <LobbyBoard />
                             </div>
                         </div>
-                        <BotLobbyPanel socket={botSocket} onPlay={async (color, bot, tc, mode) => {
+                        <BotLobbyPanel socket={botSocketRef.current!} onPlay={async (color, bot, tc, mode) => {
                             let adapterToUse = socketEngineAdapter;
                             if (mode === 'local') {
                                 try {
-                                    if (!localAdapterInstance) {
-                                        localAdapterInstance = new StockfishAdapter(new EventBus());
-                                        await localAdapterInstance.init({ workerPath: '/stockfish.js', defaultDepth: 15 });
+                                    if (!localAdapterRef.current) {
+                                        localAdapterRef.current = new StockfishAdapter(new EventBus());
+                                        await localAdapterRef.current.init({ workerPath: '/stockfish.js', defaultDepth: 15 });
                                     }
                                     adapterToUse = {
                                         evaluate: async (fen: string, options?: BotConfig['engineOptions']) => {
                                             if (options?.skillLevel !== undefined) {
-                                                localAdapterInstance!.setOption('Skill Level', options.skillLevel);
+                                                localAdapterRef.current!.setOption('Skill Level', options.skillLevel);
                                             }
-                                            return localAdapterInstance!.evaluate(fen, options?.depth);
+                                            return localAdapterRef.current!.evaluate(fen, options?.depth);
                                         }
                                     };
                                 } catch (error) {
@@ -165,7 +154,7 @@ export default function ComputerMatch() {
 
     // --- FASE 2: PLAYING (Mismo layout de la partida online) ---
 
-    const { w: materialW, b: materialB } = getMaterialAdvantage();
+    const material = computeMaterialAdvantage(controller.getBoardGrid());
 
     const localPlayerProfile: Player = {
         playerId: 'local-human',
@@ -188,17 +177,14 @@ export default function ComputerMatch() {
             if (hintState.step === 1) {
                 app.annotations.addArrow(hintState.from, hintState.to);
                 setHintState({ ...hintState, step: 2 });
-                setBoardSnapshot(app.getSnapshot());
             }
             return;
         }
 
-        // Fetch new hint
         setHintState(null);
         app.annotations.clearAll();
         
         try {
-            // Evaluamos con un nivel alto para asegurar una buena pista
             const evaluation = await currentAdapter.evaluate(currentFen, { skillLevel: 20, depth: 15 });
             if (evaluation.bestMove) {
                 const from = evaluation.bestMove.substring(0, 2);
@@ -206,22 +192,17 @@ export default function ComputerMatch() {
                 
                 app.annotations.addHighlight(from, hintColor);
                 setHintState({ fen: currentFen, from, to, step: 1 });
-                setBoardSnapshot(app.getSnapshot());
             }
         } catch (error) {
             console.error("Failed to fetch hint:", error);
         }
     };
 
-
-
     const restoreMove = () => {
         if (status === 'game_over') return;
         if (!app.engine.canUndo()) return;
         
         const currentTurn = app.engine.getTurn();
-        // Si nos toca a nosotros, deshacemos 2 (la nuestra y la del bot)
-        // Si le toca al bot (ej. está pensando), deshacemos 1 (la nuestra)
         const movesToUndo = currentTurn === playerColor ? 2 : 1;
         
         for (let i = 0; i < movesToUndo; i++) {
@@ -230,14 +211,12 @@ export default function ComputerMatch() {
             }
         }
         
-        // Truncar el árbol para que no se pueda "rehacer" (borramos el futuro)
         const currentNode = app.engine.getGameTree().getCurrentNode();
         currentNode.children.splice(0, currentNode.children.length);
         
         app.annotations.clearAll();
         app.interaction.clearSelection();
         setHintState(null);
-        setBoardSnapshot(app.getSnapshot());
     };
 
     const handleRematch = () => {
@@ -271,7 +250,7 @@ export default function ComputerMatch() {
         <div className='flex bg-muted'>
             <div className="h-screen w-screen flex flex-col overflow-hidden">
                 {/* Mobile History (Horizontal) */}
-                <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="mobile" onBestMove={getBestMove} onRestoreMove={restoreMove} embed={gameEmbed} />
+                <GameHistoryPanel controller={controller} variant="mobile" onBestMove={getBestMove} onRestoreMove={restoreMove} embed={gameEmbed} />
 
                 {/* Oponente (Header) */}
                 <header
@@ -283,23 +262,14 @@ export default function ComputerMatch() {
                         color={opponentColor}
                         isTurn={serverTurn === opponentColor}
                         timeRemaining={opponentColor === 'w' ? localWhiteTime : localBlackTime}
-                        material={opponentColor === 'w' ? materialW : materialB}
+                        material={opponentColor === 'w' ? material.w : material.b}
                         timeControl={timeControl}
                     />
                 </header>
 
-                {/* Tablero (Centro) */}
+                {/* Tablero (Centro) — NEW: uses agnostic Board + controller */}
                 <main className="flex-1 min-h-0 w-full relative" ref={mainRef}>
-                    <GameBoard
-                        app={app}
-                        boardSnapshot={boardSnapshot}
-                        setBoardSnapshot={setBoardSnapshot}
-                        playerColor={playerColor}
-                        emitMove={emitMove}
-                        whiteTime={localWhiteTime}
-                        blackTime={localBlackTime}
-                        isGameOver={status === 'game_over'}
-                    />
+                    <Board controller={controller} />
                 </main>
 
                 {/* Local Player (Footer) */}
@@ -312,14 +282,14 @@ export default function ComputerMatch() {
                         color={localColor}
                         isTurn={serverTurn === localColor}
                         timeRemaining={localColor === 'w' ? localWhiteTime : localBlackTime}
-                        material={localColor === 'w' ? materialW : materialB}
+                        material={localColor === 'w' ? material.w : material.b}
                         timeControl={timeControl}
                     />
                 </footer>
-                <PGNButtonsNavigate app={app} setBoardSnapshot={setBoardSnapshot} onBestMove={getBestMove} onRestoreMove={restoreMove} />
+                <PGNNavigation controller={controller} onBestMove={getBestMove} onRestoreMove={restoreMove} />
             </div>
             {/* Desktop History Sidebar */}
-            <GameHistoryPanel app={app} setBoardSnapshot={setBoardSnapshot} variant="desktop" onBestMove={getBestMove} onRestoreMove={restoreMove} embed={gameEmbed} />
+            <GameHistoryPanel controller={controller} variant="desktop" onBestMove={getBestMove} onRestoreMove={restoreMove} embed={gameEmbed} />
         </div>
     );
 }

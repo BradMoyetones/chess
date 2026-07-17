@@ -72,7 +72,7 @@ export class InteractionManager {
             return;
         }
 
-        // Caso 2: Click en una pieza -> seleccionar
+        // Caso 2: Click en una pieza → seleccionar
         const piece = this.engine.getPieceAt(square);
         if (piece) {
             const turn = this.engine.getTurn();
@@ -82,7 +82,7 @@ export class InteractionManager {
                 this.selectedSquare = square;
                 this.validDestinations = this.engine.getLegalMovesFor(square);
             } else {
-                // Es PLAY pero no es su turno -> Pre-move selection
+                // Es PLAY pero no es su turno → Pre-move selection
                 this.selectedSquare = square;
                 this.validDestinations = this.engine.getPremoveDestinationsFor(square);
             }
@@ -94,7 +94,10 @@ export class InteractionManager {
             return;
         }
 
-        // Caso 3: Click en vacío sin selección previa -> deseleccionar
+        // Caso 3: Click en vacío → deseleccionar y cancelar premoves
+        if (this.premoveQueue.length > 0) {
+            this.clearPremoves();
+        }
         this.clearSelection();
     }
 
@@ -130,18 +133,23 @@ export class InteractionManager {
         const nextPremove = this.premoveQueue[0];
         const piece = this.engine.getPieceAt(nextPremove.from);
         
-        // Verificamos si la pieza sigue allí y ahora SÍ es su turno
-        if (piece && piece.color === this.engine.getTurn()) {
+        // Si la pieza ya no existe (capturada por el rival), invalidar toda la cola
+        if (!piece) {
+            this.clearPremoves();
+            return;
+        }
+
+        // Si es el turno de la pieza, intentar ejecutar el premove
+        if (piece.color === this.engine.getTurn()) {
             this.premoveQueue.shift(); // Sacar de la cola
             
             // Intentar ejecutar
             const result = this.engine.attemptMove(nextPremove.from, nextPremove.to);
             if (result.success) {
                 this.eventBus.emit('PREMOVE_EXECUTED', { from: nextPremove.from, to: nextPremove.to });
-                // Si aún hay más premoves (algo raro porque los turnos alternan, pero por si acaso)
-                // se ejecutarán en el siguiente BOARD_UPDATED
+                // Los siguientes premoves se ejecutarán en el próximo BOARD_UPDATED
             } else {
-                // Si falló (ej: quedó en jaque, pieza bloqueada), cancelar todo
+                // Si falló (ej: quedó en jaque, pieza bloqueada), cancelar toda la cola
                 this.clearPremoves();
             }
         }

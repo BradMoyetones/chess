@@ -1,0 +1,229 @@
+import { useRef, useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Lightbulb, Pause, Play, Undo2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
+import type { BoardController } from '@/modules/board/core/ports/BoardController.port';
+
+interface GameHistoryPanelProps {
+    controller: BoardController;
+    /** External trigger to force re-render */
+    renderKey?: number;
+    variant: 'mobile' | 'desktop';
+    onRestoreMove?: () => void;
+    onBestMove?: () => Promise<void>;
+    embed?: React.ReactNode;
+}
+
+export function GameHistoryPanel({ controller, variant, onRestoreMove, onBestMove, embed }: GameHistoryPanelProps) {
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const scrollRefPc = useRef<HTMLDivElement>(null);
+    const [play, setPlay] = useState(false);
+    const [loadingBestMove, setLoadingBestMove] = useState(false);
+    const [, forceUpdate] = useState(0);
+
+    const canUndo = controller.canUndo();
+    const canRedo = controller.canRedo();
+    const mainLine = controller.getMainLine();
+    const currentNodeId = controller.getCurrentNodeId();
+
+    // Subscribe to board changes
+    useEffect(() => {
+        const unsub = controller.onBoardChange(() => forceUpdate((c) => c + 1));
+        return unsub;
+    }, [controller]);
+
+    useEffect(() => {
+        const activeBtn = document.getElementById(`move-btn-${variant}-${currentNodeId}`);
+        if (activeBtn) {
+            setTimeout(() => {
+                activeBtn.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }, 10);
+        }
+    }, [currentNodeId, variant]);
+
+    useEffect(() => {
+        if (play) {
+            controller.redo();
+            forceUpdate((c) => c + 1);
+            const interval = setInterval(() => {
+                controller.redo();
+                forceUpdate((c) => c + 1);
+                if (!controller.canRedo()) {
+                    setPlay(false);
+                }
+            }, 600);
+            return () => clearInterval(interval);
+        }
+    }, [play, controller]);
+
+    const handleBestMove = async () => {
+        if (onBestMove) {
+            setLoadingBestMove(true);
+            await onBestMove();
+            setLoadingBestMove(false);
+        }
+    };
+
+    const handleGoToMove = (nodeId: string) => {
+        controller.goToMove(nodeId);
+        forceUpdate((c) => c + 1);
+    };
+
+    if (variant === 'mobile') {
+        return (
+            <div className="lg:hidden block w-full border-b shadow-md bg-background">
+                <div className="w-full scrollbar-none overflow-x-auto scroll-fade-x" ref={scrollRef}>
+                    <div className="flex w-max space-x-2 p-2 items-center h-12">
+                        {mainLine.length > 1 ? (
+                            mainLine.slice(1).map((node: any, i: number) => (
+                                <div key={node.id} className="inline-flex items-center gap-1">
+                                    {i % 2 === 0 && (
+                                        <span className="text-muted-foreground text-xs font-mono ml-2">
+                                            {i / 2 + 1}.
+                                        </span>
+                                    )}
+                                    <Button
+                                        id={`move-btn-${variant}-${node.id}`}
+                                        variant={currentNodeId === node.id ? 'default' : 'secondary'}
+                                        size="sm"
+                                        className="h-7 text-xs px-2"
+                                        onClick={() => handleGoToMove(node.id)}
+                                    >
+                                        {node.move?.san}
+                                    </Button>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-sm text-muted-foreground px-4">No moves played yet...</div>
+                        )}
+                    </div>
+                </div>
+                {embed && (
+                    <div className="p-2 border-t bg-muted/20">
+                        {embed}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <Card className="hidden lg:flex flex-col w-[400px] h-screen">
+            <CardHeader>
+                <CardTitle>History</CardTitle>
+            </CardHeader>
+            <CardContent ref={scrollRefPc} className="overflow-y-auto flex-1 p-0 scroll-fade-y scrollbar-none">
+                <div className="flex flex-col text-sm">
+                    {mainLine.length > 1 ? (
+                        mainLine
+                            .slice(1)
+                            .reduce((acc: any, node: any, i: number) => {
+                                if (i % 2 === 0) acc.push({ turn: i / 2 + 1, white: node, black: null });
+                                else acc[acc.length - 1].black = node;
+                                return acc;
+                            }, [] as any[])
+                            .map((pair: any) => (
+                                <div
+                                    key={pair.turn}
+                                    className="flex items-center px-4 py-1.5 hover:bg-muted/30 group border-b border-border/50"
+                                >
+                                    <div className="w-8 text-muted-foreground font-mono select-none flex items-center">
+                                        {pair.turn}.
+                                    </div>
+                                    <div className="grid w-full grid-cols-2 gap-2">
+                                        <Button
+                                            id={`move-btn-${variant}-${pair.white.id}`}
+                                            variant={currentNodeId === pair.white.id ? 'default' : 'secondary'}
+                                            size="sm"
+                                            onClick={() => handleGoToMove(pair.white.id)}
+                                            className="w-fit"
+                                        >
+                                            {pair.white.move?.san}
+                                        </Button>
+                                        {pair.black && (
+                                            <Button
+                                                id={`move-btn-${variant}-${pair.black.id}`}
+                                                variant={currentNodeId === pair.black.id ? 'default' : 'secondary'}
+                                                size="sm"
+                                                onClick={() => handleGoToMove(pair.black.id)}
+                                                className="w-fit"
+                                            >
+                                                {pair.black.move?.san}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                    ) : (
+                        <div className="text-center py-4 text-muted-foreground">No moves yet</div>
+                    )}
+                </div>
+            </CardContent>
+            <CardFooter className="flex-col gap-2">
+                {embed && embed}
+                {(onRestoreMove || onBestMove) && (
+                    <div className="flex w-full gap-2">
+                        {onRestoreMove && (
+                            <Button variant="outline" onClick={onRestoreMove} className="flex-1">
+                                <Undo2 />
+                            </Button>
+                        )}
+                        {onBestMove && (
+                            <Button
+                                variant="outline"
+                                onClick={handleBestMove}
+                                className="flex-1"
+                                disabled={loadingBestMove}
+                            >
+                                {loadingBestMove ? <Spinner /> : <Lightbulb />}
+                            </Button>
+                        )}
+                    </div>
+                )}
+                <div className="flex gap-2 w-full justify-center md:justify-start">
+                    <Button
+                        variant="outline"
+                        disabled={!canUndo}
+                        onClick={() => { controller.goToStart(); forceUpdate((c) => c + 1); }}
+                        className="flex-2"
+                    >
+                        <ChevronFirst />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={!canUndo}
+                        onClick={() => { controller.undo(); forceUpdate((c) => c + 1); }}
+                        className="flex-2"
+                    >
+                        <ChevronLeft />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={!canRedo}
+                        onClick={() => setPlay((prev) => !prev)}
+                        className="flex-1"
+                    >
+                        {play ? <Pause className="fill-current" /> : <Play className="fill-current" />}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={!canRedo}
+                        onClick={() => { controller.redo(); forceUpdate((c) => c + 1); }}
+                        className="flex-2"
+                    >
+                        <ChevronRight />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={!canRedo}
+                        onClick={() => { controller.goToEnd(); forceUpdate((c) => c + 1); }}
+                        className="flex-2"
+                    >
+                        <ChevronLast />
+                    </Button>
+                </div>
+            </CardFooter>
+        </Card>
+    );
+}
