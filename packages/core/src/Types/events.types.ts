@@ -2,7 +2,6 @@
 // Cada módulo emite y escucha estos eventos a través del EventBus.
 
 import type { PieceSymbol, Color } from 'chess.js';
-import type { MoveData } from './game-tree.types';
 import type { EngineMode } from './mode.types';
 import type { Annotation } from './annotation.types';
 import type { EvaluationData } from './engine.types';

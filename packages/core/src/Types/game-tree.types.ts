@@ -1,7 +1,7 @@
 // Tipos para el Game Tree: la estructura de datos que permite
 // navegar la partida como un árbol con variantes.
 
-import type { PieceSymbol, Color } from 'chess.js';
+import type { PieceSymbol } from 'chess.js';
 
 /**
  * Datos completos de un movimiento individual.

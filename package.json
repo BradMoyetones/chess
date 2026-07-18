@@ -19,7 +19,8 @@
     "test": "turbo run test",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "turbo run build && changeset publish"
+    "release": "turbo run build && changeset publish",
+    "generate-exports": "node scripts/generate-chess-exports.js"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
