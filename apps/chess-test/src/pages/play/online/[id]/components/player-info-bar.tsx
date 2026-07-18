@@ -2,10 +2,11 @@ import { Clock } from 'lucide-react';
 import { CapturedMaterial } from './captured-material';
 import { cn } from '@/lib/utils';
 import type { Player } from '@/types/game';
+import type { Color } from '@chess-fw/core';
 
 interface PlayerInfoBarProps {
     player: Player | null;
-    color: 'w' | 'b';
+    color: Color;
     isTurn: boolean;
     timeRemaining: number | null;
     material: { score: number; pieces: string[] };

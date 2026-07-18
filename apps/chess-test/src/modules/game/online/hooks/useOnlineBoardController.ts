@@ -1,10 +1,10 @@
 import { useRef } from 'react';
 import { OnlineBoardController } from '@/modules/game/online/adapters/OnlineBoardController';
-import type { ChessApp } from '@chess-fw/core';
+import type { ChessApp, Color } from '@chess-fw/core';
 
 interface UseOnlineBoardControllerParams {
     app: ChessApp;
-    playerColor: 'w' | 'b';
+    playerColor: Color;
     isGameOver: boolean;
     emitMove: (moveData: any) => void;
     whiteTime?: number | null;

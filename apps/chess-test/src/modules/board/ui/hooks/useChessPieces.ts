@@ -1,11 +1,11 @@
 import { useMemo, useRef } from 'react';
-import type { PieceSymbol } from 'chess.js';
+import type { Color, PieceSymbol } from '@chess-fw/core';
 import type { BoardController } from '@/modules/board/core/ports/BoardController.port';
 
 export interface StablePiece {
     id: string;
     type: PieceSymbol;
-    color: 'w' | 'b';
+    color: Color;
     square: string;
 }
 

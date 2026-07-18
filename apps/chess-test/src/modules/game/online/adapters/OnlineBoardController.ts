@@ -1,4 +1,4 @@
-import type { PieceSymbol } from 'chess.js';
+import type { PieceSymbol } from '@chess-fw/core';
 import { ChessApp } from '@chess-fw/core';
 import type {
     BoardController,

@@ -1,10 +1,10 @@
 import { useRef } from 'react';
 import { BotBoardController } from '@/modules/game/computer/adapters/BotBoardController';
-import type { ChessApp } from '@chess-fw/core';
+import type { ChessApp, Color } from '@chess-fw/core';
 
 interface UseBotBoardControllerParams {
     app: ChessApp;
-    playerColor: 'w' | 'b';
+    playerColor: Color;
     isGameOver: boolean;
     whiteTime?: number | null;
     blackTime?: number | null;

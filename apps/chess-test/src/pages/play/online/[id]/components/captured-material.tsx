@@ -1,5 +1,4 @@
-type Color = 'w' | 'b';
-type PieceSymbol = 'p' | 'n' | 'b' | 'r' | 'q';
+import type { Color, PieceSymbol } from '@chess-fw/core';
 
 interface SpriteData {
     bgX: string;
@@ -8,7 +7,9 @@ interface SpriteData {
     h: string;
 }
 
-const SPRITE_MAP: Record<Color, Record<PieceSymbol, SpriteData[]>> = {
+type PieceSymbolOmitKing = Exclude<PieceSymbol, 'k'>;
+
+const SPRITE_MAP: Record<Color, Record<PieceSymbolOmitKing, SpriteData[]>> = {
     w: {
         p: [
             { bgX: '-36em', bgY: '-59.4em', w: '1.3em', h: '1.7em' },
@@ -74,14 +75,14 @@ interface CapturedMaterialProps {
 export function CapturedMaterial({ pieces, color, score }: CapturedMaterialProps) {
     if (pieces.length === 0) return <div className="h-[20px]" />;
 
-    const counts: Record<PieceSymbol, number> = { p: 0, n: 0, b: 0, r: 0, q: 0 };
+    const counts: Record<PieceSymbolOmitKing, number> = { p: 0, n: 0, b: 0, r: 0, q: 0 };
     pieces.forEach(p => {
-        if (counts[p as PieceSymbol] !== undefined) {
-            counts[p as PieceSymbol]++;
+        if (counts[p as PieceSymbolOmitKing] !== undefined) {
+            counts[p as PieceSymbolOmitKing]++;
         }
     });
 
-    const order: PieceSymbol[] = ['p', 'n', 'b', 'r', 'q'];
+    const order: PieceSymbolOmitKing[] = ['p', 'n', 'b', 'r', 'q'];
 
     return (
         <div className="flex items-end gap-1 min-h-[20px]" style={{ fontSize: '10px' }}>

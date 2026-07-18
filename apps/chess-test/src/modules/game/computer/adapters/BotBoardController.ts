@@ -1,5 +1,4 @@
-import type { PieceSymbol } from 'chess.js';
-import { ChessApp } from '@chess-fw/core';
+import { ChessApp, type Color, type PieceSymbol } from '@chess-fw/core';
 import type {
     BoardController,
     MoveResult,
@@ -14,7 +13,7 @@ import type {
 
 export interface BotBoardControllerConfig {
     app: ChessApp;
-    playerColor: 'w' | 'b';
+    playerColor: Color;
     isGameOver: boolean;
     whiteTime?: number | null;
     blackTime?: number | null;

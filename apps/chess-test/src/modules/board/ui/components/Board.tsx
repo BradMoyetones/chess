@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, memo } from 'react';
-import type { PieceSymbol } from 'chess.js';
+import type { PieceSymbol } from '@chess-fw/core';
 import type { BoardController } from '@/modules/board/core/ports/BoardController.port';
 import { BoardAnnotations } from '@/components/board/board-annotations';
 import { BoardEffects } from '@/modules/board/ui/components/BoardEffects';

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { type PieceSymbol } from 'chess.js';
-import { ChessApp, type BoardSnapshot } from '@chess-fw/core';
+import { ChessApp, type BoardSnapshot, type PieceSymbol } from '@chess-fw/core';
 import { BoardAnnotations } from '@/components/board/board-annotations';
 import { BoardEffects } from '@/components/board/board-effects';
 import { BoardHighlights } from '@/components/board/board-highlights';

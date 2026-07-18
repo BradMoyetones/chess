@@ -1,4 +1,4 @@
-import type { PieceSymbol, Color } from 'chess.js';
+import type { PieceSymbol, Color } from '@chess-fw/core';
 
 // ─── Square & Piece Primitives ───────────────────────────────────────────────
 
