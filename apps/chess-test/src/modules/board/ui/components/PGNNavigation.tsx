@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Lightbulb, Pause, Play, Undo2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import type { BoardController } from '@/modules/board/core/ports/BoardController.port';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface PGNButtonsNavigateProps {
     controller: BoardController;
@@ -19,6 +20,7 @@ export function PGNButtonsNavigate({
     const [play, setPlay] = useState(false);
     const [loadingBestMove, setLoadingBestMove] = useState(false);
     const [, forceUpdate] = useState(0);
+    const isMobile = useIsMobile();
 
     const canUndo = controller.canUndo();
     const canRedo = controller.canRedo();
@@ -120,6 +122,7 @@ export function PGNButtonsNavigate({
                     <ChevronLast />
                 </Button>
             </div>
+            {isMobile && <div className='py-1.5' />}
         </div>
     );
 }
