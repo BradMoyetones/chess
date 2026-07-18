@@ -1,5 +1,11 @@
 # @chess-fw/core
 
+## 2.1.1
+
+### Patch Changes
+
+-   2e7d9cc: Re-exports types from chess.js
+
 ## 2.1.0
 
 ### Minor Changes
