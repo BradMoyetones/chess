@@ -1,17 +1,17 @@
 import { memo } from 'react';
 import { motion } from 'motion/react';
-import type { PieceSymbol } from '@chess-fw/core';
+import type { Color, PieceSymbol } from '@chess-fw/core';
 import Coordinates from '@/components/board/coordinates';
 import { theme, coordinateColors } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
-type Piece = { type: PieceSymbol; color: 'w' | 'b' } | null;
+type Piece = { type: PieceSymbol; color: Color } | null;
 
 // Starting position, rank 8 (top) down to rank 1 (bottom).
 const START_ROWS: Piece[][] = (() => {
-    const back = (color: 'w' | 'b'): Piece[] =>
+    const back = (color: Color): Piece[] =>
         (['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'] as PieceSymbol[]).map((type) => ({ type, color }));
-    const pawns = (color: 'w' | 'b'): Piece[] =>
+    const pawns = (color: Color): Piece[] =>
         Array.from({ length: 8 }, () => ({ type: 'p' as PieceSymbol, color }));
     const empty = (): Piece[] => Array.from({ length: 8 }, () => null);
 
