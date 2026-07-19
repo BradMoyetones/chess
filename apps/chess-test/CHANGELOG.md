@@ -1,5 +1,12 @@
 # chess-test
 
+## 1.0.2
+
+### Patch Changes
+
+-   Updated dependencies [76c6c70]
+    -   @chess-fw/core@2.1.2
+
 ## 1.0.1
 
 ### Patch Changes
