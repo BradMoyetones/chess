@@ -1,7 +1,7 @@
 {
   "name": "@chess-fw/core",
   "description": "Professional, event-driven, framework-agnostic chess engine core in TypeScript. Features time travel, event bus, PGN/FEN parsing, and Stockfish integration.",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "license": "MIT",
   "publishConfig": {
     "access": "public"
