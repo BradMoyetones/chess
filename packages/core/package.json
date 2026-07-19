@@ -1,6 +1,6 @@
 {
   "name": "@chess-fw/core",
-  "description": "A chess module typescript bases (POO)",
+  "description": "Professional, event-driven, framework-agnostic chess engine core in TypeScript. Features time travel, event bus, PGN/FEN parsing, and Stockfish integration.",
   "version": "2.1.1",
   "license": "MIT",
   "publishConfig": {
@@ -15,15 +15,32 @@
     "url": "https://github.com/BradMoyetones/chess.git",
     "directory": "packages/core"
   },
+  "homepage": "https://github.com/BradMoyetones/chess/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/BradMoyetones/chess/issues"
+  },
   "files": [
     "dist"
   ],
   "keywords": [
     "chess",
-    "framework",
+    "chess-engine",
+    "chess-game",
+    "chess-board",
+    "chess-framework",
+    "pgn",
+    "fen",
+    "stockfish",
     "typescript",
-    "javascript"
+    "board-games",
+    "puzzle-validator",
+    "headless-chess",
+    "event-driven"
   ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
