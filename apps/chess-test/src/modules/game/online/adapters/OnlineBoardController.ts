@@ -1,4 +1,4 @@
-import type { PieceSymbol } from '@chess-fw/core';
+import type { Color, PieceSymbol } from '@chess-fw/core';
 import { ChessApp } from '@chess-fw/core';
 import type {
     BoardController,
@@ -14,7 +14,7 @@ import type {
 
 export interface OnlineBoardControllerConfig {
     app: ChessApp;
-    playerColor: 'w' | 'b';
+    playerColor: Color;
     isGameOver: boolean;
     onMoveEmit: (move: MoveData) => void;
     whiteTime?: number | null;
@@ -31,7 +31,7 @@ export interface OnlineBoardControllerConfig {
  */
 export class OnlineBoardController implements BoardController {
     private app: ChessApp;
-    private playerColor: 'w' | 'b';
+    private playerColor: Color;
     private _isGameOver: boolean;
     private onMoveEmit: (move: MoveData) => void;
     private whiteTime: number | null;
@@ -55,7 +55,7 @@ export class OnlineBoardController implements BoardController {
     }
 
     // === Orientation ===
-    getOrientation(): 'w' | 'b' {
+    getOrientation(): Color {
         return this.playerColor;
     }
 
@@ -70,7 +70,7 @@ export class OnlineBoardController implements BoardController {
         return !this.isGameOver() && !this.app.engine.canRedo();
     }
 
-    getTurn(): 'w' | 'b' {
+    getTurn(): Color {
         return this.app.engine.getTurn();
     }
 

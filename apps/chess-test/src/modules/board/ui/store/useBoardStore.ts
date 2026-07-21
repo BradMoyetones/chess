@@ -8,13 +8,14 @@ import type {
     Premove,
     MoveNodeData,
 } from '@/modules/board/core/ports/BoardController.port';
+import type { Color } from '@chess-fw/core';
 
 // ─── Store State ─────────────────────────────────────────────────────────────
 
 interface BoardStoreState {
     // === Board visual state (granular) ===
     boardGrid: SquareData[][];
-    orientation: 'w' | 'b';
+    orientation: Color;
     selectedSquare: string | null;
     /** Valid destinations for the selected square.
      *  Comes from InteractionManager — includes premove destinations when not your turn. */
@@ -25,7 +26,7 @@ interface BoardStoreState {
     premoves: Premove[];
 
     // === Game state ===
-    turn: 'w' | 'b';
+    turn: Color;
     fen: string;
     isGameOver: boolean;
     isInteractive: boolean;

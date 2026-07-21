@@ -28,7 +28,7 @@ export interface BotBoardControllerConfig {
  */
 export class BotBoardController implements BoardController {
     private app: ChessApp;
-    private playerColor: 'w' | 'b';
+    private playerColor: Color;
     private _isGameOver: boolean;
     private whiteTime: number | null;
     private blackTime: number | null;
@@ -48,7 +48,7 @@ export class BotBoardController implements BoardController {
         if (config.blackTime !== undefined) this.blackTime = config.blackTime ?? null;
     }
 
-    getOrientation(): 'w' | 'b' {
+    getOrientation(): Color {
         return this.playerColor;
     }
 
@@ -62,7 +62,7 @@ export class BotBoardController implements BoardController {
         return !this.isGameOver() && !this.app.engine.canRedo();
     }
 
-    getTurn(): 'w' | 'b' {
+    getTurn(): Color {
         return this.app.engine.getTurn();
     }
 

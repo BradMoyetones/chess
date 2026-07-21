@@ -1,4 +1,4 @@
-import type { PieceSymbol } from '@chess-fw/core';
+import type { Color, PieceSymbol } from '@chess-fw/core';
 import { ChessApp } from '@chess-fw/core';
 import type {
     BoardController,
@@ -22,20 +22,20 @@ import type {
  */
 export class AnalysisBoardController implements BoardController {
     private app: ChessApp;
-    private orientation: 'w' | 'b';
+    private orientation: Color;
 
-    constructor(app: ChessApp, orientation: 'w' | 'b' = 'w') {
+    constructor(app: ChessApp, orientation: Color = 'w') {
         this.app = app;
         this.orientation = orientation;
         // Set core to ANALYSIS mode — allows either color to move
         this.app.engine.setMode('ANALYSIS');
     }
 
-    getOrientation(): 'w' | 'b' {
+    getOrientation(): Color {
         return this.orientation;
     }
 
-    setOrientation(color: 'w' | 'b'): void {
+    setOrientation(color: Color): void {
         this.orientation = color;
     }
 
@@ -51,7 +51,7 @@ export class AnalysisBoardController implements BoardController {
         return true; // Always interactive
     }
 
-    getTurn(): 'w' | 'b' {
+    getTurn(): Color {
         return this.app.engine.getTurn();
     }
 

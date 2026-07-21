@@ -33,7 +33,7 @@ export function useChessPieces(controller: BoardController | null): StablePiece[
         const board = controller.getBoardGrid();
         const currentMap = piecesMapRef.current;
         const nextMap = new Map<string, StablePiece>();
-        const unassignedNewPieces: { square: string; type: PieceSymbol; color: 'w' | 'b' }[] = [];
+        const unassignedNewPieces: { square: string; type: PieceSymbol; color: Color }[] = [];
         const availableOldPieces = Array.from(currentMap.values());
 
         // Pass 1: Identify pieces that stayed in place
@@ -51,8 +51,8 @@ export function useChessPieces(controller: BoardController | null): StablePiece[
                 } else {
                     unassignedNewPieces.push({
                         square: sq.algebraic,
-                        type: sq.piece.type as PieceSymbol,
-                        color: sq.piece.color as 'w' | 'b',
+                        type: sq.piece.type,
+                        color: sq.piece.color,
                     });
                 }
             }
