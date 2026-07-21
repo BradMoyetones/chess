@@ -1,6 +1,8 @@
 import os from "os";
 
-export function detectOS() {
+export type Os = 'windows' | 'mac-m1' | 'mac-intel' | 'linux';
+
+export function detectOS(): Os {
     const platform = os.platform();
     const arch = os.arch();
 

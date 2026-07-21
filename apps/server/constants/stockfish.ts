@@ -1,4 +1,15 @@
-export const STOCKFISH_BINARIES = [
+import { Os } from "./os";
+
+export interface StockfishBinary {
+    name: string;
+    value: Os;
+    file: string;
+    isZip: boolean;
+    exePath: string;
+    destExe: string;
+}
+
+export const STOCKFISH_BINARIES: StockfishBinary[] = [
     {
         name: 'Windows x86-64',
         value: 'windows',

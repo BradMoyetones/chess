@@ -1,23 +1,19 @@
 /**
  * Chess Game Server
  * Express + Socket.IO + Stockfish
- *
- * @typedef {import('./types.js').PlayerData} PlayerData
- * @typedef {import('./types.js').TimeControl} TimeControl
- * @typedef {import('./types.js').GameResult} GameResult
- * @typedef {import('./types.js').GameRecord} GameRecord
  */
 
 import express from 'express';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { StockfishAdapter, EventBus } from '@chess-fw/core';
-import { detectOS } from './constants/os.js';
-import { STOCKFISH_BINARIES } from './constants/stockfish.js';
+import { StockfishAdapter, EventBus, Color } from '@chess-fw/core';
+import { detectOS } from './constants/os';
+import { STOCKFISH_BINARIES } from './constants/stockfish';
+import type { PlayerData, TimeControl, GameResult, GameRecord, Role } from './types';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -33,6 +29,11 @@ const __dirname = path.dirname(filename);
 
 const detectedOs = detectOS();
 const binary = STOCKFISH_BINARIES.find(binary => binary.value === detectedOs);
+
+if (!binary) {
+    throw new Error(`Unsupported OS: ${detectedOs}`);
+}
+
 const stockfishBinaryPath = path.resolve(__dirname, 'bin', binary.destExe);
 
 // ─── Express + Socket.IO Setup ───────────────────────────────────────────────
@@ -63,40 +64,29 @@ console.log('[*] Stockfish inicializado en el servidor.');
 
 // ─── In-Memory State ─────────────────────────────────────────────────────────
 
-/** @type {Map<string, GameRecord>} */
-const rooms = new Map();
-
-/** @type {Map<string, NodeJS.Timeout>} Disconnect timers keyed by `${roomId}:${playerId}` */
-const disconnectTimers = new Map();
+const rooms = new Map<string, GameRecord>();
+const disconnectTimers = new Map<string, NodeJS.Timeout>();
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
 
-function generateRoomId() {
+function generateRoomId(): string {
     return crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
 /**
  * Resolve the host color from the requested value, handling 'random'.
- * @param {string|undefined} hostColor
- * @returns {'w'|'b'}
  */
-function resolveHostColor(hostColor) {
+function resolveHostColor(hostColor?: string): Color {
     if (hostColor === 'random' || !hostColor) {
         return Math.random() < 0.5 ? 'w' : 'b';
     }
-    return hostColor;
+    return hostColor as Color;
 }
 
 /**
  * Create a new PlayerData object.
- * @param {string} socketId
- * @param {string} playerId
- * @param {string} name
- * @param {string} avatar
- * @param {number|null} timeRemainingMs
- * @returns {PlayerData}
  */
-function createPlayer(socketId, playerId, name, avatar, timeRemainingMs) {
+function createPlayer(socketId: string, playerId: string, name: string, avatar: string, timeRemainingMs: number | null): PlayerData {
     return {
         socketId,
         playerId,
@@ -109,13 +99,8 @@ function createPlayer(socketId, playerId, name, avatar, timeRemainingMs) {
 
 /**
  * Create a new GameRecord for a room.
- * @param {string} roomId
- * @param {PlayerData} host
- * @param {'w'|'b'} hostColor
- * @param {TimeControl|null} timeControl
- * @returns {GameRecord}
  */
-function createRoom(roomId, host, hostColor, timeControl) {
+function createRoom(roomId: string, host: PlayerData, hostColor: Color, timeControl: TimeControl | null): GameRecord {
     return {
         id: roomId,
         host,
@@ -137,11 +122,8 @@ function createRoom(roomId, host, hostColor, timeControl) {
 
 /**
  * Determine which player role a socket occupies in a room.
- * @param {GameRecord} room
- * @param {string} socketId
- * @returns {'host'|'guest'|null}
  */
-function getPlayerRole(room, socketId) {
+function getPlayerRole(room: GameRecord, socketId: string): Role | null {
     if (room.host.socketId === socketId) return 'host';
     if (room.guest && room.guest.socketId === socketId) return 'guest';
     return null;
@@ -149,19 +131,15 @@ function getPlayerRole(room, socketId) {
 
 /**
  * Get the player's color based on their role.
- * @param {GameRecord} room
- * @param {'host'|'guest'} role
- * @returns {'w'|'b'}
  */
-function getPlayerColor(room, role) {
+function getPlayerColor(room: GameRecord, role: Role): Color {
     return role === 'host' ? room.hostColor : (room.hostColor === 'w' ? 'b' : 'w');
 }
 
 /**
  * Build a standardised game-state snapshot for callbacks / events.
- * @param {GameRecord} room
  */
-function buildGameSnapshot(room) {
+function buildGameSnapshot(room: GameRecord) {
     return {
         roomId: room.id,
         fen: room.fen,
@@ -177,10 +155,8 @@ function buildGameSnapshot(room) {
 
 /**
  * Clear a disconnect timer for a player if one exists.
- * @param {string} roomId
- * @param {string} playerId
  */
-function clearDisconnectTimer(roomId, playerId) {
+function clearDisconnectTimer(roomId: string, playerId: string): void {
     const key = `${roomId}:${playerId}`;
     const timer = disconnectTimers.get(key);
     if (timer) {
@@ -192,11 +168,8 @@ function clearDisconnectTimer(roomId, playerId) {
 /**
  * Start a disconnect timer. If the player doesn't reconnect within
  * DISCONNECT_TIMEOUT_MS the game is auto-forfeited.
- * @param {string} roomId
- * @param {string} playerId
- * @param {'w'|'b'} playerColor
  */
-function startDisconnectTimer(roomId, playerId, playerColor) {
+function startDisconnectTimer(roomId: string, playerId: string, playerColor: Color): void {
     const key = `${roomId}:${playerId}`;
     // Clear any existing timer first
     clearDisconnectTimer(roomId, playerId);
@@ -207,8 +180,7 @@ function startDisconnectTimer(roomId, playerId, playerColor) {
 
         const winner = playerColor === 'w' ? 'b' : 'w';
 
-        /** @type {GameResult} */
-        const result = {
+        const result: GameResult = {
             winner,
             reason: 'abandonment',
             timestamp: Date.now(),
@@ -229,33 +201,33 @@ function startDisconnectTimer(roomId, playerId, playerColor) {
 
 // ─── Socket.IO Event Handlers ────────────────────────────────────────────────
 
-io.on('connection', (socket) => {
+io.on('connection', (socket: Socket) => {
     console.log(`[+] Cliente conectado: ${socket.id}`);
 
     // ── Evaluate Bot Move ────────────────────────────────────────────────
-    socket.on('evaluate_bot_move', async ({ fen, options }, callback) => {
+    socket.on('evaluate_bot_move', async ({ fen, options }: { fen: string; options?: any }, callback?: (res: any) => void) => {
         try {
             if (options && options.skillLevel !== undefined) {
                 stockfish.setOption('UCI_LimitStrength', 'true');
                 const elo = Math.min(3200, Math.max(1320, 1320 + options.skillLevel * 90));
-                stockfish.setOption('UCI_Elo', elo);
-                stockfish.setOption('Skill Level', options.skillLevel);
+                stockfish.setOption('UCI_Elo', elo.toString());
+                stockfish.setOption('Skill Level', options.skillLevel.toString());
             } else {
                 stockfish.setOption('UCI_LimitStrength', 'false');
-                stockfish.setOption('Skill Level', 20);
+                stockfish.setOption('Skill Level', '20');
             }
 
             const evaluation = await stockfish.evaluate(fen, options?.depth);
 
             if (callback) callback({ success: true, evaluation });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error evaluando move:', error);
             if (callback) callback({ success: false, error: error.message });
         }
     });
 
     // ── Create Room ──────────────────────────────────────────────────────
-    socket.on('create_room', ({ hostColor, timeControl, playerName, playerAvatar, playerId }, callback) => {
+    socket.on('create_room', ({ hostColor, timeControl, playerName, playerAvatar, playerId }: any, callback?: (res: any) => void) => {
         const roomId = generateRoomId();
         const finalHostColor = resolveHostColor(hostColor);
         const initialTimeMs = timeControl ? timeControl.initial * 1000 : null;
@@ -271,7 +243,7 @@ io.on('connection', (socket) => {
     });
 
     // ── Join Room ────────────────────────────────────────────────────────
-    socket.on('join_room', ({ roomId, playerId, playerName, playerAvatar }, callback) => {
+    socket.on('join_room', ({ roomId, playerId, playerName, playerAvatar }: any, callback?: (res: any) => void) => {
         const room = rooms.get(roomId);
 
         if (!room) {
@@ -367,7 +339,7 @@ io.on('connection', (socket) => {
     });
 
     // ── Move ─────────────────────────────────────────────────────────────
-    socket.on('move', ({ roomId, moveData, fen, pgn }, callback) => {
+    socket.on('move', ({ roomId, moveData, fen, pgn }: any, callback?: (res: any) => void) => {
         const room = rooms.get(roomId);
         if (!room) {
             if (callback) callback({ success: false, error: 'Sala no encontrada' });
@@ -402,9 +374,9 @@ io.on('connection', (socket) => {
             const incrementMs = room.timeControl.increment * 1000;
 
             if (room.turn === room.hostColor) {
-                room.host.timeRemaining = Math.max(0, room.host.timeRemaining - timeElapsed) + incrementMs;
-            } else {
-                room.guest.timeRemaining = Math.max(0, room.guest.timeRemaining - timeElapsed) + incrementMs;
+                room.host.timeRemaining = Math.max(0, (room.host.timeRemaining || 0) - timeElapsed) + incrementMs;
+            } else if (room.guest) {
+                room.guest.timeRemaining = Math.max(0, (room.guest.timeRemaining || 0) - timeElapsed) + incrementMs;
             }
         }
 
@@ -431,7 +403,7 @@ io.on('connection', (socket) => {
     });
 
     // ── Game Over ────────────────────────────────────────────────────────
-    socket.on('game_over', ({ roomId, result }, callback) => {
+    socket.on('game_over', ({ roomId, result }: any, callback?: (res: any) => void) => {
         const room = rooms.get(roomId);
         if (!room) {
             if (callback) callback({ success: false, error: 'Sala no encontrada' });
@@ -451,8 +423,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        /** @type {GameResult} */
-        const gameResult = {
+        const gameResult: GameResult = {
             winner: result.winner,
             reason: result.reason,
             timestamp: Date.now(),
@@ -472,7 +443,7 @@ io.on('connection', (socket) => {
     });
 
     // ── Request Rematch ──────────────────────────────────────────────────
-    socket.on('request_rematch', ({ roomId }, callback) => {
+    socket.on('request_rematch', ({ roomId }: any, callback?: (res: any) => void) => {
         const room = rooms.get(roomId);
         if (!room) {
             if (callback) callback({ success: false, error: 'Sala no encontrada' });
@@ -486,17 +457,18 @@ io.on('connection', (socket) => {
         }
 
         const player = role === 'host' ? room.host : room.guest;
-        room.rematchRequested = player.playerId;
-
-        // Notify opponent
-        socket.to(roomId).emit('rematch_requested', { requestedBy: player.playerId, playerName: player.name });
-
-        console.log(`[REMATCH] Sala ${roomId} | ${player.name} solicitó revancha`);
+        if (player) {
+            room.rematchRequested = player.playerId;
+            // Notify opponent
+            socket.to(roomId).emit('rematch_requested', { requestedBy: player.playerId, playerName: player.name });
+            console.log(`[REMATCH] Sala ${roomId} | ${player.name} solicitó revancha`);
+        }
+        
         if (callback) callback({ success: true });
     });
 
     // ── Accept Rematch ───────────────────────────────────────────────────
-    socket.on('accept_rematch', ({ roomId }, callback) => {
+    socket.on('accept_rematch', ({ roomId }: any, callback?: (res: any) => void) => {
         const room = rooms.get(roomId);
         if (!room) {
             if (callback) callback({ success: false, error: 'Sala no encontrada' });
@@ -531,7 +503,9 @@ io.on('connection', (socket) => {
 
         // Reset player times
         room.host.timeRemaining = initialTimeMs;
-        room.guest.timeRemaining = initialTimeMs;
+        if (room.guest) {
+            room.guest.timeRemaining = initialTimeMs;
+        }
 
         const snapshot = buildGameSnapshot(room);
         const guestColor = room.hostColor === 'w' ? 'b' : 'w';
@@ -556,7 +530,7 @@ io.on('connection', (socket) => {
     });
 
     // ── Decline Rematch ──────────────────────────────────────────────────
-    socket.on('decline_rematch', ({ roomId }, callback) => {
+    socket.on('decline_rematch', ({ roomId }: any, callback?: (res: any) => void) => {
         const room = rooms.get(roomId);
         if (!room) {
             if (callback) callback({ success: false, error: 'Sala no encontrada' });
@@ -583,9 +557,9 @@ io.on('connection', (socket) => {
         console.log(`[-] Cliente desconectado: ${socket.id}`);
 
         for (const [roomId, room] of rooms.entries()) {
-            let disconnectedRole = null;
-            let disconnectedPlayerId = null;
-            let disconnectedColor = null;
+            let disconnectedRole: Role | null = null;
+            let disconnectedPlayerId: string | null = null;
+            let disconnectedColor: Color | null = null;
 
             if (room.host.socketId === socket.id) {
                 room.host.connected = false;
@@ -599,7 +573,7 @@ io.on('connection', (socket) => {
                 disconnectedColor = room.hostColor === 'w' ? 'b' : 'w';
             }
 
-            if (disconnectedRole) {
+            if (disconnectedRole && disconnectedPlayerId && disconnectedColor) {
                 io.to(roomId).emit('opponent_disconnected', {
                     hostConnected: room.host.connected,
                     guestConnected: room.guest ? room.guest.connected : false,
