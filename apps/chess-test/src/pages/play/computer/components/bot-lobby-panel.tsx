@@ -1,4 +1,4 @@
-import { useState, useEffect, type ComponentType } from 'react';
+import { useState, useEffect, useCallback, memo, type ComponentType } from 'react';
 import { motion } from 'motion/react';
 import { Gauge, Infinity as InfinityIcon, Play, Shuffle, Timer, Zap, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { CHESS_BOTS } from '@/data/bots';
 import type { BotConfig, TimeControl } from '@/types/game';
+import type { Color } from '@chess-fw/core';
 
 type Category = 'none' | 'bullet' | 'blitz' | 'rapid';
 type TimeOption = { i: number; inc: number; label: string };
@@ -50,15 +51,138 @@ interface BotLobbyPanelProps {
     socket: any;
 }
 
+// --- CONSTANTES ESTÁTICAS PARA EVITAR RE-RENDERIZADOS ---
+const OPONENTE_HEADER = (
+    <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+        <Bot className="size-4" /> Selecciona tu oponente
+    </h2>
+);
+
+const TIME_HEADER = (
+    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Control de tiempo
+    </h3>
+);
+
+const COLOR_HEADER = (
+    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Juego con
+    </h3>
+);
+
+// --- COMPONENTES MEMOIZADOS ---
+const BotButton = memo(({ bot, active, onClick }: { bot: BotConfig, active: boolean, onClick: (id: string) => void }) => (
+    <button
+        type="button"
+        onClick={() => onClick(bot.playerId)}
+        aria-pressed={active}
+        className={cn(
+            'flex items-center gap-3 p-3 rounded-lg border transition-all text-left',
+            active
+                ? 'border-chess bg-chess/10 ring-1 ring-chess/40'
+                : 'border-border bg-background hover:border-muted-foreground/40'
+        )}
+    >
+        <img src={bot.avatar} alt="" className="size-10 object-cover rounded-md" />
+        <div>
+            <h3 className="font-semibold text-sm leading-tight text-foreground">{bot.name}</h3>
+            <p className="text-xs font-medium text-muted-foreground">Elo: {bot.rating}</p>
+        </div>
+    </button>
+));
+
+const CategoryButton = memo(({ keyId, label, Icon, active, onClick }: { keyId: Category, label: string, Icon: any, active: boolean, onClick: (c: Category) => void }) => (
+    <button
+        type="button"
+        onClick={() => onClick(keyId)}
+        aria-pressed={active}
+        className={cn(
+            'flex flex-col items-center gap-1 rounded-lg border py-2.5 text-xs font-medium transition-all',
+            active
+                ? 'border-chess bg-chess/10 text-foreground'
+                : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
+        )}
+    >
+        <Icon className={cn('size-5', active && 'text-chess')} />
+        {label}
+    </button>
+));
+
+const TimePresetButton = memo(({ opt, active, onClick }: { opt: TimeOption, active: boolean, onClick: (i: number, inc: number) => void }) => (
+    <button
+        type="button"
+        onClick={() => onClick(opt.i, opt.inc)}
+        aria-pressed={active}
+        className={cn(
+            'rounded-lg border py-2.5 text-sm font-semibold tabular-nums transition-all',
+            active
+                ? 'border-chess bg-chess/10 text-foreground ring-1 ring-chess/40'
+                : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
+        )}
+    >
+        {opt.label}
+    </button>
+));
+
+const ColorButton = memo(({ keyId, label, active, onClick }: { keyId: Color | 'random', label: string, active: boolean, onClick: (c: Color | 'random') => void }) => (
+    <button
+        type="button"
+        onClick={() => onClick(keyId)}
+        aria-pressed={active}
+        className={cn(
+            'flex flex-col items-center gap-1.5 rounded-lg border py-3 text-xs font-medium transition-all',
+            active
+                ? 'border-chess bg-chess/10 text-foreground ring-1 ring-chess/40'
+                : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
+        )}
+    >
+        {keyId === 'random' ? (
+            <span className="flex size-8 items-center justify-center">
+                <Shuffle className="size-6" />
+            </span>
+        ) : (
+            <img
+                src={theme.pieces.k[keyId]}
+                alt=""
+                aria-hidden="true"
+                className="size-8 object-contain"
+            />
+        )}
+        {label}
+    </button>
+));
+
+const EngineSwitch = memo(({ engineMode, socketConnected, onChange }: { engineMode: 'server' | 'local', socketConnected: boolean, onChange: (checked: boolean) => void }) => (
+    <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex flex-col space-y-0.5">
+                <Label className="text-sm font-semibold">Motor en la Nube</Label>
+                <span className="text-[11px] text-muted-foreground">
+                    {!socketConnected 
+                        ? 'Servidor desconectado. Usando motor local WASM.' 
+                        : (engineMode === 'server' ? 'Stockfish remoto (requiere conexión)' : 'Stockfish local WASM (ocupa CPU local)')}
+                </span>
+            </div>
+            <Switch
+                checked={engineMode === 'server'}
+                onCheckedChange={onChange}
+                disabled={!socketConnected}
+            />
+        </div>
+    </div>
+));
+
 export function BotLobbyPanel({ onPlay, socket }: BotLobbyPanelProps) {
     const [selectedBotId, setSelectedBotId] = useState<string>(CHESS_BOTS[1].playerId); // Default: Aficionado
     const [selectedTimeCategory, setSelectedTimeCategory] = useState<Category>('none');
     const [selectedTime, setSelectedTime] = useState<TimeControl | null>(null);
     const [selectedColor, setSelectedColor] = useState<'w' | 'b' | 'random'>('random');
-    const [engineMode, setEngineMode] = useState<'server' | 'local'>(socket.connected ? 'server' : 'local');
-    const [socketConnected, setSocketConnected] = useState(socket.connected);
+    const [engineMode, setEngineMode] = useState<'server' | 'local'>(socket?.connected ? 'server' : 'local');
+    const [socketConnected, setSocketConnected] = useState(socket?.connected ?? false);
 
     useEffect(() => {
+        if (!socket) return;
+        
         const onConnect = () => setSocketConnected(true);
         const onDisconnect = () => {
             setSocketConnected(false);
@@ -81,22 +205,8 @@ export function BotLobbyPanel({ onPlay, socket }: BotLobbyPanelProps) {
         };
     }, [socket]);
 
-    const handleEngineModeToggle = (checked: boolean) => {
-        if (!checked) {
-            // Local Mode
-            const hasWasm = typeof WebAssembly === 'object' && typeof WebAssembly.instantiate === 'function';
-            if (!hasWasm) {
-                toast.error('WebAssembly no está disponible en tu navegador.');
-                return;
-            }
-            setEngineMode('local');
-        } else {
-            // Server Mode
-            setEngineMode('server');
-        }
-    };
-
-    const handleCategoryChange = (category: Category) => {
+    // Callbacks estables para los componentes memoizados
+    const handleCategoryChange = useCallback((category: Category) => {
         setSelectedTimeCategory(category);
         if (category === 'none') {
             setSelectedTime(null);
@@ -104,7 +214,29 @@ export function BotLobbyPanel({ onPlay, socket }: BotLobbyPanelProps) {
             const first = TIME_OPTIONS[category][0];
             setSelectedTime({ initial: first.i, increment: first.inc });
         }
-    };
+    }, []);
+
+    const handleTimeSelect = useCallback((initial: number, increment: number) => {
+        setSelectedTime({ initial, increment });
+    }, []);
+
+    const handleEngineModeToggle = useCallback((checked: boolean) => {
+        if (!checked) {
+            const hasWasm = typeof WebAssembly === 'object' && typeof WebAssembly.instantiate === 'function';
+            if (!hasWasm) {
+                toast.error('WebAssembly no está disponible en tu navegador.');
+                return;
+            }
+            setEngineMode('local');
+        } else {
+            setEngineMode('server');
+        }
+    }, []);
+
+    const handlePlayClick = useCallback(() => {
+        const selectedBot = CHESS_BOTS.find(b => b.playerId === selectedBotId)!;
+        onPlay(selectedColor, selectedBot, selectedTime, engineMode);
+    }, [selectedColor, selectedBotId, selectedTime, engineMode, onPlay]);
 
     const times = selectedTimeCategory !== 'none' ? TIME_OPTIONS[selectedTimeCategory] : [];
     const selectedBot = CHESS_BOTS.find(b => b.playerId === selectedBotId)!;
@@ -118,33 +250,16 @@ export function BotLobbyPanel({ onPlay, socket }: BotLobbyPanelProps) {
             aria-label="Selección de Bot"
         >
             <div className="flex flex-col gap-3">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                    <Bot className="size-4" /> Selecciona tu oponente
-                </h2>
+                {OPONENTE_HEADER}
                 <div className="grid grid-cols-2 gap-2">
-                    {CHESS_BOTS.map((bot) => {
-                        const active = selectedBotId === bot.playerId;
-                        return (
-                            <button
-                                key={bot.playerId}
-                                type="button"
-                                onClick={() => setSelectedBotId(bot.playerId)}
-                                aria-pressed={active}
-                                className={cn(
-                                    'flex items-center gap-3 p-3 rounded-lg border transition-all text-left',
-                                    active
-                                        ? 'border-chess bg-chess/10 ring-1 ring-chess/40'
-                                        : 'border-border bg-background hover:border-muted-foreground/40'
-                                )}
-                            >
-                                <img src={bot.avatar} alt="" className="size-10 object-cover rounded-md" />
-                                <div>
-                                    <h3 className="font-semibold text-sm leading-tight text-foreground">{bot.name}</h3>
-                                    <p className="text-xs font-medium text-muted-foreground">Elo: {bot.rating}</p>
-                                </div>
-                            </button>
-                        );
-                    })}
+                    {CHESS_BOTS.map((bot) => (
+                        <BotButton
+                            key={bot.playerId}
+                            bot={bot}
+                            active={selectedBotId === bot.playerId}
+                            onClick={setSelectedBotId}
+                        />
+                    ))}
                 </div>
                 <p className="text-xs text-muted-foreground italic px-1 text-balance">
                     {selectedBot.description}
@@ -155,30 +270,18 @@ export function BotLobbyPanel({ onPlay, socket }: BotLobbyPanelProps) {
 
             {/* Time category */}
             <div className="flex flex-col gap-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Control de tiempo
-                </h3>
+                {TIME_HEADER}
                 <div className="grid grid-cols-4 gap-2">
-                    {CATEGORY_META.map(({ key, label, Icon }) => {
-                        const active = selectedTimeCategory === key;
-                        return (
-                            <button
-                                key={key}
-                                type="button"
-                                onClick={() => handleCategoryChange(key)}
-                                aria-pressed={active}
-                                className={cn(
-                                    'flex flex-col items-center gap-1 rounded-lg border py-2.5 text-xs font-medium transition-all',
-                                    active
-                                        ? 'border-chess bg-chess/10 text-foreground'
-                                        : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
-                                )}
-                            >
-                                <Icon className={cn('size-5', active && 'text-chess')} />
-                                {label}
-                            </button>
-                        );
-                    })}
+                    {CATEGORY_META.map(({ key, label, Icon }) => (
+                        <CategoryButton
+                            key={key}
+                            keyId={key}
+                            label={label}
+                            Icon={Icon}
+                            active={selectedTimeCategory === key}
+                            onClick={handleCategoryChange}
+                        />
+                    ))}
                 </div>
             </div>
 
@@ -189,89 +292,42 @@ export function BotLobbyPanel({ onPlay, socket }: BotLobbyPanelProps) {
                 </p>
             ) : (
                 <div className="grid grid-cols-3 gap-2">
-                    {times.map((opt) => {
-                        const active = selectedTime?.initial === opt.i && selectedTime?.increment === opt.inc;
-                        return (
-                            <button
-                                key={opt.label}
-                                type="button"
-                                onClick={() => setSelectedTime({ initial: opt.i, increment: opt.inc })}
-                                aria-pressed={active}
-                                className={cn(
-                                    'rounded-lg border py-2.5 text-sm font-semibold tabular-nums transition-all',
-                                    active
-                                        ? 'border-chess bg-chess/10 text-foreground ring-1 ring-chess/40'
-                                        : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
-                                )}
-                            >
-                                {opt.label}
-                            </button>
-                        );
-                    })}
+                    {times.map((opt) => (
+                        <TimePresetButton
+                            key={opt.label}
+                            opt={opt}
+                            active={selectedTime?.initial === opt.i && selectedTime?.increment === opt.inc}
+                            onClick={handleTimeSelect}
+                        />
+                    ))}
                 </div>
             )}
 
             {/* Color */}
             <div className="flex flex-col gap-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Juego con
-                </h3>
+                {COLOR_HEADER}
                 <div className="grid grid-cols-3 gap-2">
-                    {COLOR_OPTIONS.map(({ key, label }) => {
-                        const active = selectedColor === key;
-                        return (
-                            <button
-                                key={key}
-                                type="button"
-                                onClick={() => setSelectedColor(key)}
-                                aria-pressed={active}
-                                className={cn(
-                                    'flex flex-col items-center gap-1.5 rounded-lg border py-3 text-xs font-medium transition-all',
-                                    active
-                                        ? 'border-chess bg-chess/10 text-foreground ring-1 ring-chess/40'
-                                        : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
-                                )}
-                            >
-                                {key === 'random' ? (
-                                    <span className="flex size-8 items-center justify-center">
-                                        <Shuffle className="size-6" />
-                                    </span>
-                                ) : (
-                                    <img
-                                        src={theme.pieces.k[key] || '/placeholder.svg'}
-                                        alt=""
-                                        aria-hidden="true"
-                                        className="size-8 object-contain"
-                                    />
-                                )}
-                                {label}
-                            </button>
-                        );
-                    })}
+                    {COLOR_OPTIONS.map(({ key, label }) => (
+                        <ColorButton
+                            key={key}
+                            keyId={key as Color | 'random'}
+                            label={label}
+                            active={selectedColor === key}
+                            onClick={setSelectedColor}
+                        />
+                    ))}
                 </div>
             </div>
 
             {/* Engine Mode Toggle */}
-            <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="flex flex-col space-y-0.5">
-                        <Label className="text-sm font-semibold">Motor en la Nube</Label>
-                        <span className="text-[11px] text-muted-foreground">
-                            {!socketConnected 
-                                ? 'Servidor desconectado. Usando motor local WASM.' 
-                                : (engineMode === 'server' ? 'Stockfish remoto (requiere conexión)' : 'Stockfish local WASM (ocupa CPU local)')}
-                        </span>
-                    </div>
-                    <Switch
-                        checked={engineMode === 'server'}
-                        onCheckedChange={handleEngineModeToggle}
-                        disabled={!socketConnected}
-                    />
-                </div>
-            </div>
+            <EngineSwitch
+                engineMode={engineMode}
+                socketConnected={socketConnected}
+                onChange={handleEngineModeToggle}
+            />
 
             <Button
-                onClick={() => onPlay(selectedColor, selectedBot, selectedTime, engineMode)}
+                onClick={handlePlayClick}
                 className="h-12 w-full bg-chess text-base font-semibold text-chess-foreground hover:bg-chess-hover"
             >
                 <Play className="size-5 fill-current" />

@@ -119,7 +119,7 @@ export default function ComputerMatch() {
                     </header>
                     <main className="grid flex-1 items-center gap-6 md:grid-cols-[minmax(0,1fr)_380px] lg:grid-cols-[minmax(0,1fr)_400px]">
                         <div className="hidden justify-center md:flex">
-                            <div className="w-full max-w-[540px]">
+                            <div className="w-full max-w-135">
                                 <LobbyBoard />
                             </div>
                         </div>
