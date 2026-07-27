@@ -275,7 +275,19 @@
 	function handlePiecePointerDown(e: PointerEvent, algebraic: string, pieceType: string, pieceColor: string) {
 		if (!canInteract(pieceColor)) return;
 		if (e.button !== 0) return;
+
+		// ─── Case A: clicking a valid destination (capture by click) ───
+		if (isSquareValidDest(algebraic)) {
+			e.preventDefault();
+			isAnimating = true;
+			onsquareclick?.({ square: algebraic });
+			return; // move done, no drag
+		}
+
 		e.preventDefault();
+
+		// Select on press — valid destinations appear instantly
+		onsquareclick?.({ square: algebraic });
 
 		const rect = boardEl?.getBoundingClientRect();
 		if (!rect) return;
@@ -342,12 +354,8 @@
 
 		const from = drag.originAlgebraic;
 
-		if (isClick) {
-			if (isSquareValidDest(from)) {
-				isAnimating = true;
-			}
-			onsquareclick?.({ square: from });
-		} else if (hoverSquare && hoverSquare !== from) {
+		// Click was already handled in pointerdown → only process drag-drops here
+		if (!isClick && hoverSquare && hoverSquare !== from) {
 			onpiecedrop?.({ from, to: hoverSquare });
 		}
 
