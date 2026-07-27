@@ -1,4 +1,6 @@
 <script lang="ts">
+	// import { dev } from '$app/environment';
+	// import { RenderScan } from 'svelte-render-scan';
 	import favicon from '$lib/assets/favicon.svg';
 	import { ModeWatcher } from 'mode-watcher';
 	// Supports weights 100-900
@@ -20,6 +22,10 @@
 		});
 	});
 </script>
+<!-- 
+{#if dev}
+	<RenderScan />
+{/if} -->
 
 <svelte:head>
 	<link rel="icon" href={favicon} />

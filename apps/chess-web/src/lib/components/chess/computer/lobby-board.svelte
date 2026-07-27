@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { motion } from '@humanspeak/svelte-motion';
-	import { coordinateColors, theme } from '$lib/theme';
+	import { theme } from '$lib/theme';
 	import { cn } from '$lib/utils';
 	import type { Color, PieceSymbol } from '@chess-fw/core';
 	import Coordinates from '../coordinates.svelte';
@@ -44,8 +44,8 @@
 
 	<Coordinates
 		class="pointer-events-none absolute inset-0 z-10 [&>svg]:h-full [&>svg]:w-full"
-		light={coordinateColors.light}
-		dark={coordinateColors.dark}
+		light={theme.coordinates.light}
+		dark={theme.coordinates.dark}
 	/>
 
 	{#each START_PIECES as { piece, rowIndex, colIndex }, i}

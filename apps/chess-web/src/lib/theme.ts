@@ -1,16 +1,70 @@
-export const coordinateColors = {
-    light: "#779556",
-    dark: "#EBECD0"
+import type { PieceSymbol, Color } from '@chess-fw/core';
+
+// ═══════════════════════════════════════════
+//  Theme Type Definitions
+// ═══════════════════════════════════════════
+
+export interface HighlightColors {
+    selected: string;
+    lastMove: string;
+    premove: string;
+    hoverBorder: string;
+    hoverShadow: string;
+    destinationEmpty: string;
+    destinationCapture: string;
+}
+
+export interface BoardTheme {
+    id: string;
+    name: string;
+    board: {
+        /** The background image renders the full 8x8 grid — no square colors needed. */
+        backgroundImage: string;
+    };
+    coordinates: {
+        light: string;
+        dark: string;
+    };
+    highlights: HighlightColors;
+    pieces: Record<PieceSymbol, Record<Color, string>>;
+    sounds: {
+        capture: string;
+        castle: string;
+        moveCheck: string;
+        moveSelf: string;
+        promote: string;
+    };
+}
+
+// ═══════════════════════════════════════════
+//  Default Highlight Colors
+// ═══════════════════════════════════════════
+
+export const DEFAULT_HIGHLIGHTS: HighlightColors = {
+    selected: "rgba(255, 255, 51, 0.5)",
+    lastMove: "rgba(255, 255, 51, 0.5)",
+    premove: "rgba(244, 63, 94, 0.5)",
+    hoverBorder: "rgba(255, 255, 255, 0.7)",
+    hoverShadow: "inset 0 0 10px rgba(255, 255, 255, 0)",
+    destinationEmpty: "rgba(0, 0, 0, 0.14)",
+    destinationCapture: "rgba(0, 0, 0, 0.14)"
 };
 
-export const theme = {
+// ═══════════════════════════════════════════
+//  Default Theme
+// ═══════════════════════════════════════════
+
+export const theme: BoardTheme = {
     id: "theme-1",
     name: "Theme 1",
     board: {
-        darkSquareColor: "#779556",
-        lightSquareColor: "#EBECD0",
         backgroundImage: "/assets/images/200.png"
     },
+    coordinates: {
+        light: "#779556",
+        dark: "#EBECD0"
+    },
+    highlights: { ...DEFAULT_HIGHLIGHTS },
     pieces: {
         b: { b: "/assets/images/bb.png", w: "/assets/images/wb.png" },
         k: { b: "/assets/images/bk.png", w: "/assets/images/wk.png" },

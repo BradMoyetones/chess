@@ -58,10 +58,22 @@ export class InteractionManager {
             const isPremove = this.engine.getMode() === 'PLAY' && piece && piece.color !== this.engine.getTurn();
 
             if (isPremove) {
+                // ── Premove queue invalidation ──
+                // Rule 1: Only one premove per origin piece.
+                // Rule 2: If the user re-interacts with a piece that already has a
+                //         queued premove, truncate the queue from that point onward.
+                const existingIdx = this.premoveQueue.findIndex(
+                    pm => pm.from === this.selectedSquare
+                );
+                if (existingIdx !== -1) {
+                    // Remove from existingIdx onward (this premove + all subsequent)
+                    this.premoveQueue.splice(existingIdx);
+                }
+
                 this.premoveQueue.push({ from: this.selectedSquare, to: square });
                 this.eventBus.emit('PREMOVE_QUEUED', { from: this.selectedSquare, to: square });
             } else {
-                // Si hacemos un movimiento normal (o cambiamos de opinion), limpiamos los premoves
+                // Normal move clears the premove queue
                 if (this.premoveQueue.length > 0) {
                     this.clearPremoves();
                 }
