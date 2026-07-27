@@ -5,6 +5,7 @@
 	import '@fontsource-variable/outfit/wght.css';
 	import './layout.css';
 	import { onNavigate } from '$app/navigation';
+	import { Toaster } from '$lib/components/ui/sonner/index.js';
 
 	let { children } = $props();
 
@@ -28,5 +29,6 @@
 		href="https://github.com/lafeber/world-flags-sprite/blob/master/stylesheets/flags32-both.css"
 	/>
 </svelte:head>
+<Toaster />
 <ModeWatcher defaultTheme="dark" />
 {@render children()}
