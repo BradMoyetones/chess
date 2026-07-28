@@ -1,17 +1,32 @@
 import type { Handle } from '@sveltejs/kit';
-import { building } from '$app/environment';
-import { auth } from '$lib/server/auth';
-import { svelteKitHandler } from 'better-auth/svelte-kit';
 
-const handleBetterAuth: Handle = async ({ event, resolve }) => {
-	const session = await auth.api.getSession({ headers: event.request.headers });
+/**
+ * Server hook that obtains the user session from the Express backend.
+ * SvelteKit forwards the browser's cookies to Express's Better Auth
+ * endpoint, which validates the session and returns user data.
+ */
+const handleAuth: Handle = async ({ event, resolve }) => {
+	const cookieHeader = event.request.headers.get('cookie') || '';
 
-	if (session) {
-		event.locals.session = session.session;
-		event.locals.user = session.user;
+	if (cookieHeader) {
+		try {
+			const response = await fetch('http://localhost:3001/api/auth/get-session', {
+				headers: { cookie: cookieHeader },
+			});
+
+			if (response.ok) {
+				const data = await response.json();
+				if (data?.user) {
+					event.locals.user = data.user;
+					event.locals.session = data.session;
+				}
+			}
+		} catch {
+			// Express server not available; user remains unauthenticated
+		}
 	}
 
-	return svelteKitHandler({ event, resolve, auth, building });
+	return resolve(event);
 };
 
-export const handle: Handle = handleBetterAuth;
+export const handle: Handle = handleAuth;

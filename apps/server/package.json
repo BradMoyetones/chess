@@ -7,7 +7,10 @@
   "scripts": {
     "dev": "tsx watch index.ts",
     "build": "tsup index.ts --format esm --clean",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "keywords": [],
   "author": "",
@@ -15,14 +18,21 @@
   "type": "module",
   "dependencies": {
     "@chess-fw/core": "workspace:*",
+    "@chess-fw/db": "workspace:*",
+    "better-auth": "^1.2.0",
+    "better-sqlite3": "^12.0.0",
     "cors": "^2.8.6",
+    "dotenv": "^16.5.0",
+    "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
+    "drizzle-kit": "^0.31.10",
     "nodemon": "^3.1.14",
     "tsup": "^8.5.1",
     "tsx": "^4.22.5",

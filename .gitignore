@@ -1,8 +1,39 @@
+# Dependencies
 node_modules
+
+# Build output
 dist
+
+# Binaries
 bin
+
+# Turbo
 .turbo
+
+# IDE
 .vscode
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Agent configs
 .agents
+
+# pnpm
 .pnpm-store
+
+# Environment variables (NEVER commit)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Drizzle local meta
+drizzle/meta

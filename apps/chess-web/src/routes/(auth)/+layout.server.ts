@@ -1,15 +1,10 @@
-import { auth } from '$lib/server/auth';
 import { redirect } from '@sveltejs/kit';
-import type { RequestEvent } from '../$types';
+import type { LayoutServerLoad } from './$types';
 
-export const load = async (event: RequestEvent) => {
-	const session = await auth.api.getSession({
-		headers: event.request.headers
-	});
-
-	if (session) {
+export const load: LayoutServerLoad = async ({ locals }) => {
+	if (locals.session) {
 		redirect(302, '/');
 	}
 
-	return { session };
+	return { session: locals.session ?? null };
 };
