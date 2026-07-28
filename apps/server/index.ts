@@ -35,6 +35,10 @@ import { GamePersistenceService } from './src/application/GamePersistenceService
 import { DrizzleGameRepository } from './src/infrastructure/repositories/DrizzleGameRepository';
 import { DrizzleUserRepository } from './src/infrastructure/repositories/DrizzleUserRepository';
 import { createGameRoutes } from './src/interfaces/http/game.routes';
+import { createProfileRoutes } from './src/interfaces/http/profile.routes';
+import { createSocialRoutes } from './src/interfaces/http/social.routes';
+import { createLeaderboardRoutes } from './src/interfaces/http/leaderboard.routes';
+import { DrizzleFriendshipRepository } from './src/infrastructure/repositories/DrizzleFriendshipRepository';
 
 // ─── Stockfish Binary Resolution ─────────────────────────────────────────────
 import { detectOS } from './constants/os';
@@ -67,6 +71,12 @@ const userRepo = new DrizzleUserRepository();
 const persistenceService = new GamePersistenceService(gameRepo, userRepo);
 
 app.use('/api/games', createGameRoutes(gameRepo));
+
+const friendshipRepo = new DrizzleFriendshipRepository();
+
+app.use('/api/profile', createProfileRoutes());
+app.use('/api/social', createSocialRoutes(friendshipRepo));
+app.use('/api/leaderboard', createLeaderboardRoutes());
 
 // ─── HTTP + Socket.IO ────────────────────────────────────────────────────────
 const httpServer = createServer(app);
