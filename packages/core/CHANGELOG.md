@@ -1,28 +1,34 @@
 # @chess-fw/core
 
+## 3.0.0
+
+### Major Changes
+
+- 720960e: Cola de prevomes actualizada, si se intenta hacer un premove de una pieza en cola se limpian todos los que hayan para evitar multiples premoves de una sola pieza
+
 ## 2.1.2
 
 ### Patch Changes
 
--   76c6c70: chore(core): enhance package.json metadata for better npm indexing and SEO
+- 76c6c70: chore(core): enhance package.json metadata for better npm indexing and SEO
 
-    -   Updated description to highlight key features (event-driven, PGN/FEN, Stockfish).
-    -   Expanded keywords to include highly searched terms (chess-engine, headless-chess, etc.).
-    -   Added `homepage` and `bugs` URLs for better NPM quality score.
-    -   Added `sideEffects: false` for better tree-shaking support in bundlers.
-    -   Added `engines` requirement (node >= 16.0.0).
+    - Updated description to highlight key features (event-driven, PGN/FEN, Stockfish).
+    - Expanded keywords to include highly searched terms (chess-engine, headless-chess, etc.).
+    - Added `homepage` and `bugs` URLs for better NPM quality score.
+    - Added `sideEffects: false` for better tree-shaking support in bundlers.
+    - Added `engines` requirement (node >= 16.0.0).
 
 ## 2.1.1
 
 ### Patch Changes
 
--   2e7d9cc: Re-exports types from chess.js
+- 2e7d9cc: Re-exports types from chess.js
 
 ## 2.1.0
 
 ### Minor Changes
 
--   eedc985: # @chess-fw/core — Changelog
+- eedc985: # @chess-fw/core — Changelog
 
     ## v2.1.0 — Enterprise Refactor (2026-07-17)
 
@@ -31,101 +37,87 @@
     ### ✨ Nuevas funcionalidades
 
     #### Orientación del tablero
-
-    -   `ChessApp.flipBoard()` — Alterna orientación entre `'w'` y `'b'`
-    -   `ChessApp.setBoardOrientation(color)` — Establece orientación directa
-    -   `ChessApp.getBoardOrientation()` — Getter de orientación actual
-    -   Incluida en `BoardSnapshot.gameState.boardOrientation`
+    - `ChessApp.flipBoard()` — Alterna orientación entre `'w'` y `'b'`
+    - `ChessApp.setBoardOrientation(color)` — Establece orientación directa
+    - `ChessApp.getBoardOrientation()` — Getter de orientación actual
+    - Incluida en `BoardSnapshot.gameState.boardOrientation`
 
     #### Piezas capturadas y ventaja material
-
-    -   `ChessEngine.getCapturedPieces()` → `{ w: PieceSymbol[], b: PieceSymbol[] }`
-        -   `w` = piezas capturadas POR blancas (piezas negras tomadas)
-        -   `b` = piezas capturadas POR negras (piezas blancas tomadas)
-    -   `ChessEngine.getMaterialAdvantage()` → `{ w: number, b: number }`
-        -   Valores estándar: p=1, n=3, b=3, r=5, q=9
-    -   Incluido en `BoardSnapshot.material`
+    - `ChessEngine.getCapturedPieces()` → `{ w: PieceSymbol[], b: PieceSymbol[] }`
+        - `w` = piezas capturadas POR blancas (piezas negras tomadas)
+        - `b` = piezas capturadas POR negras (piezas blancas tomadas)
+    - `ChessEngine.getMaterialAdvantage()` → `{ w: number, b: number }`
+        - Valores estándar: p=1, n=3, b=3, r=5, q=9
+    - Incluido en `BoardSnapshot.material`
 
     #### Resultado de partida
-
-    -   **Tipo exportado**: `GameResult = { winner: 'w' | 'b' | 'draw', reason: string }`
-        -   Razones: `checkmate`, `stalemate`, `timeout`, `resignation`, `draw_agreement`, `insufficient_material`, `fifty_move`, `threefold_repetition`
-    -   `ChessEngine.getResult()` → `GameResult | null`
-    -   `ChessEngine.setResult(result)` — Para resultados externos (timeout, resign)
-    -   Auto-set cuando se detecta `GAME_OVER` en `attemptMove()`
+    - **Tipo exportado**: `GameResult = { winner: 'w' | 'b' | 'draw', reason: string }`
+        - Razones: `checkmate`, `stalemate`, `timeout`, `resignation`, `draw_agreement`, `insufficient_material`, `fifty_move`, `threefold_repetition`
+    - `ChessEngine.getResult()` → `GameResult | null`
+    - `ChessEngine.setResult(result)` — Para resultados externos (timeout, resign)
+    - Auto-set cuando se detecta `GAME_OVER` en `attemptMove()`
 
     #### Protocolo de draw/resign
-
-    -   `ChessEngine.resign(color)` — Establece resultado y emite `GAME_OVER`
-    -   `ChessEngine.offerDraw()` — Emite `DRAW_OFFERED`
-    -   `ChessEngine.acceptDraw()` — Resultado draw por acuerdo + `GAME_OVER`
-    -   `ChessEngine.declineDraw()` — Emite `DRAW_DECLINED`
-    -   Nuevos eventos: `DRAW_OFFERED`, `DRAW_DECLINED`
+    - `ChessEngine.resign(color)` — Establece resultado y emite `GAME_OVER`
+    - `ChessEngine.offerDraw()` — Emite `DRAW_OFFERED`
+    - `ChessEngine.acceptDraw()` — Resultado draw por acuerdo + `GAME_OVER`
+    - `ChessEngine.declineDraw()` — Emite `DRAW_DECLINED`
+    - Nuevos eventos: `DRAW_OFFERED`, `DRAW_DECLINED`
 
     #### Reset de partida
-
-    -   `ChessApp.resetGame(fen?)` — Limpia engine + annotations + interaction
+    - `ChessApp.resetGame(fen?)` — Limpia engine + annotations + interaction
 
     ### 🐛 Bugfixes
 
     #### Premoves inteligentes estilo chess.com
-
-    -   `getPremoveDestinationsFor()` reescrito con algoritmo de **alcanzabilidad del rival**:
-        -   Peones: capturas diagonales a casillas vacías **solo si** el rival puede mover una pieza allí en su turno
-        -   Algoritmo: `chess.moves()` del rival → `Set<casillas alcanzables>` → filtra diagonales
-        -   Rendimiento: O(1 clone + ~30 comparaciones) — insignificante
-        -   **Elimina falsos positivos**: e.g., c2 ya NO muestra b3/d3 en apertura
-        -   Si el premove resulta ilegal al ejecutarse, se cancela automáticamente
-    -   Antes: agregaba diagonales vacías incondicionalmente (v2.1.0-alpha)
+    - `getPremoveDestinationsFor()` reescrito con algoritmo de **alcanzabilidad del rival**:
+        - Peones: capturas diagonales a casillas vacías **solo si** el rival puede mover una pieza allí en su turno
+        - Algoritmo: `chess.moves()` del rival → `Set<casillas alcanzables>` → filtra diagonales
+        - Rendimiento: O(1 clone + ~30 comparaciones) — insignificante
+        - **Elimina falsos positivos**: e.g., c2 ya NO muestra b3/d3 en apertura
+        - Si el premove resulta ilegal al ejecutarse, se cancela automáticamente
+    - Antes: agregaba diagonales vacías incondicionalmente (v2.1.0-alpha)
 
     #### Cancelación de premoves en InteractionManager
-
-    -   `selectSquare()` caso 2: seleccionar pieza propia en turno ahora limpia premoves pendientes
-    -   `selectSquare()` caso 3: click en casilla vacía ahora limpia premoves pendientes
-    -   Comportamiento consistente con chess.com/lichess
+    - `selectSquare()` caso 2: seleccionar pieza propia en turno ahora limpia premoves pendientes
+    - `selectSquare()` caso 3: click en casilla vacía ahora limpia premoves pendientes
+    - Comportamiento consistente con chess.com/lichess
 
     #### `nodeCounter` global compartido
-
-    -   Antes: variable `let nodeCounter = 0` a nivel de módulo, compartida entre TODAS las instancias de `ChessApp`
-    -   Ahora: cada `GameTree` gestiona su propio contador con `nextNodeId()`
-    -   `resetNodeCounter()` mantenido como no-op para backward compat
+    - Antes: variable `let nodeCounter = 0` a nivel de módulo, compartida entre TODAS las instancias de `ChessApp`
+    - Ahora: cada `GameTree` gestiona su propio contador con `nextNodeId()`
+    - `resetNodeCounter()` mantenido como no-op para backward compat
 
     #### Evento `VARIATION_SELECTED`
-
-    -   Ahora se emite correctamente en `goToMove()` cuando se navega fuera de la línea principal
+    - Ahora se emite correctamente en `goToMove()` cuando se navega fuera de la línea principal
 
     ### 📦 Exports nuevos
-
-    -   `GameResult` (tipo)
-    -   Todos los nuevos métodos accesibles vía API pública
+    - `GameResult` (tipo)
+    - Todos los nuevos métodos accesibles vía API pública
 
     ### ⚠️ Notas de migración desde v2.0.0
-
-    -   **No breaking changes** — todos los métodos nuevos son adiciones
-    -   `BoardSnapshot` ahora incluye `material` y `boardOrientation` (campos opcionales)
-    -   `resetNodeCounter()` sigue exportado pero es no-op
+    - **No breaking changes** — todos los métodos nuevos son adiciones
+    - `BoardSnapshot` ahora incluye `material` y `boardOrientation` (campos opcionales)
+    - `resetNodeCounter()` sigue exportado pero es no-op
 
 ## 2.0.0
 
 ### Major Changes
 
--   2b2b389: Massive architectural refactoring (v2.0) focused on framework independence, memory safety, and Developer Experience (DX).
+- 2b2b389: Massive architectural refactoring (v2.0) focused on framework independence, memory safety, and Developer Experience (DX).
 
     ### Breaking Changes
-
-    -   **Core UI Removal:** `ThemeManager`, `AudioManager`, and the `ThemeConfig` type have been removed. The Core no longer has opinions on square colors, texture URLs, or sounds.
-    -   **`SquareData` Changes:** `skinUrl` and `backgroundColor` have been removed. The UI must now rely purely on the `isLight`, `piece.type`, and `piece.color` attributes to render the board.
-    -   **Dependency Injection Removed:** The global `Container` singleton and all decorators (`@Service`, `@Inject`, etc.) have been removed. Classes now use explicit constructor injection.
+    - **Core UI Removal:** `ThemeManager`, `AudioManager`, and the `ThemeConfig` type have been removed. The Core no longer has opinions on square colors, texture URLs, or sounds.
+    - **`SquareData` Changes:** `skinUrl` and `backgroundColor` have been removed. The UI must now rely purely on the `isLight`, `piece.type`, and `piece.color` attributes to render the board.
+    - **Dependency Injection Removed:** The global `Container` singleton and all decorators (`@Service`, `@Inject`, etc.) have been removed. Classes now use explicit constructor injection.
 
     ### New Features
-
-    -   **New `ChessApp` Facade:** Introduced a main class to initialize the library in a single line (`const app = new ChessApp()`), replacing the cumbersome 8-line manual initialization.
-    -   **Multiple Board Support:** Thanks to the removal of the global Singleton, it is now possible to instantiate multiple `ChessApp` instances on the same page in complete isolation, without state collisions.
-    -   **Integrated HistoryManager:** The `HistoryManager` methods (`getMoveList()`, `getTotalMoves()`, etc.) have been directly integrated into `ChessEngine` for a flatter API.
+    - **New `ChessApp` Facade:** Introduced a main class to initialize the library in a single line (`const app = new ChessApp()`), replacing the cumbersome 8-line manual initialization.
+    - **Multiple Board Support:** Thanks to the removal of the global Singleton, it is now possible to instantiate multiple `ChessApp` instances on the same page in complete isolation, without state collisions.
+    - **Integrated HistoryManager:** The `HistoryManager` methods (`getMoveList()`, `getTotalMoves()`, etc.) have been directly integrated into `ChessEngine` for a flatter API.
 
     ### Bug Fixes
-
-    -   **Phantom Threefold Repetition (Critical):** Fixed a bug where making "premoves" or invalid moves mutated the live `chess.js` instance, causing false draws due to threefold repetition (`isGameOver() === true`).
-    -   **Memory Leaks Resolved:**
-        -   `EventBus.on()` now returns a cleanup function (`() => void`), idiomatic for frameworks like React and Vue.
-        -   Implemented a teardown pattern (`destroy()`) in `InteractionManager` and `ChessApp` to purge listeners and free memory on unmounts.
+    - **Phantom Threefold Repetition (Critical):** Fixed a bug where making "premoves" or invalid moves mutated the live `chess.js` instance, causing false draws due to threefold repetition (`isGameOver() === true`).
+    - **Memory Leaks Resolved:**
+        - `EventBus.on()` now returns a cleanup function (`() => void`), idiomatic for frameworks like React and Vue.
+        - Implemented a teardown pattern (`destroy()`) in `InteractionManager` and `ChessApp` to purge listeners and free memory on unmounts.
