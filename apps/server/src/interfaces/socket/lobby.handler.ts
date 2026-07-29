@@ -1,15 +1,7 @@
 import type { Server, Socket } from 'socket.io';
 import type { RoomManager } from '../../domain/services/RoomManager';
 import type { LobbyRoom, GetOpenRoomsData, GetOpenRoomsResponse, SocketAck } from '@chess-fw/contracts';
-/** Speed classification */
-function classifySpeed(initial: number, increment: number): string {
-    const totalTime = initial + (40 * increment);
-    if (totalTime < 30) return 'ultraBullet';
-    if (totalTime < 180) return 'bullet';
-    if (totalTime < 480) return 'blitz';
-    if (totalTime < 1500) return 'rapid';
-    return 'classical';
-}
+import { classifySpeed } from '../../utils/game';
 
 export function registerLobbyHandlers(
     socket: Socket,

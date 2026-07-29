@@ -4,16 +4,7 @@ import type { RoomManager } from '../../domain/services/RoomManager';
 import { MatchmakingService } from '../../domain/services/MatchmakingService';
 import type { FindMatchData, FindMatchResponse, SocketAck, MatchRequest } from '@chess-fw/contracts';
 import type { PlayerInfo, TimeControl } from '@chess-fw/contracts';
-
-/** Speed classification */
-function classifySpeed(initial: number, increment: number): string {
-    const totalTime = initial + (40 * increment);
-    if (totalTime < 30) return 'ultraBullet';
-    if (totalTime < 180) return 'bullet';
-    if (totalTime < 480) return 'blitz';
-    if (totalTime < 1500) return 'rapid';
-    return 'classical';
-}
+import { classifySpeed } from '../../utils/game';
 
 export function registerMatchmakingHandlers(
     socket: Socket,

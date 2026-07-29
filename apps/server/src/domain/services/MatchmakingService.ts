@@ -2,16 +2,6 @@ import type { Color } from '@chess-fw/core';
 import type { MatchRequest, MatchResult } from '@chess-fw/contracts';
 import type { TimeControl } from '@chess-fw/contracts';
 
-/** Speed classification */
-function classifySpeed(initial: number, increment: number): string {
-    const totalTime = initial + (40 * increment);
-    if (totalTime < 30) return 'ultraBullet';
-    if (totalTime < 180) return 'bullet';
-    if (totalTime < 480) return 'blitz';
-    if (totalTime < 1500) return 'rapid';
-    return 'classical';
-}
-
 export class MatchmakingService {
     /** Queue grouped by speed+timeControl key */
     private queues = new Map<string, MatchRequest[]>();
