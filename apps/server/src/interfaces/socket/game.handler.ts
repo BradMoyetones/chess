@@ -1,5 +1,6 @@
 import type { Server, Socket } from 'socket.io';
-import type { Color } from '@chess-fw/core';
+import type { MovePayload, MoveResponse, GameOverData, SocketAck } from '@chess-fw/contracts';
+import type { Color, PieceSymbol } from '@chess-fw/core';
 import type { RoomManager } from '../../domain/services/RoomManager';
 import type { RoomEntity } from '../../domain/entities/RoomEntity';
 
@@ -46,7 +47,7 @@ export function registerGameHandlers(
     roomManager: RoomManager,
     persistenceService: GamePersistenceService
 ): void {
-    socket.on('move', (data: any, callback?: (res: any) => void) => {
+    socket.on('move', (data: MovePayload, callback?: (res: MoveResponse) => void) => {
         const { roomId, moveData } = data;
         const room = roomManager.getRoom(roomId);
 
@@ -82,7 +83,7 @@ export function registerGameHandlers(
             return;
         }
 
-        const result = room.game.attemptMove(from, to, promotion);
+        const result = room.game.attemptMove(from, to, promotion as PieceSymbol | undefined);
 
         if (!result.success) {
             if (callback) callback({ success: false, error: `Movimiento ilegal: ${result.reason}` });
@@ -157,7 +158,7 @@ export function registerGameHandlers(
         }
     });
 
-    socket.on('game_over', (data: any, callback?: (res: any) => void) => {
+    socket.on('game_over', (data: GameOverData, callback?: (res: SocketAck & { gameRecord?: unknown; result?: unknown }) => void) => {
         const { roomId, result } = data;
         const room = roomManager.getRoom(roomId);
 

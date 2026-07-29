@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { Color } from '@chess-fw/core';
-import type { NewGame } from '@chess-fw/db';
+import type { NewGame, UserProfile } from '@chess-fw/db';
 import type { RoomEntity } from '../domain/entities/RoomEntity';
 import type { GameRepository } from '../domain/ports/GameRepository.port';
 import type { UserRepository } from '../domain/ports/UserRepository.port';
@@ -151,7 +151,7 @@ export class GamePersistenceService {
         console.log(`[RATING] ${blackId}: ${blackRating} → ${blackChange.newRating} (${blackChange.diff > 0 ? '+' : ''}${blackChange.diff})`);
     }
 
-    private getRatingForSpeed(profile: any, speed: string): number {
+    private getRatingForSpeed(profile: UserProfile, speed: string): number {
         const DEFAULT_RATING = 1500;
         switch (speed) {
             case 'ultraBullet':

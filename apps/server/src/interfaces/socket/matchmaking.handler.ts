@@ -1,8 +1,9 @@
 import type { Server, Socket } from 'socket.io';
 import type { Color } from '@chess-fw/core';
 import type { RoomManager } from '../../domain/services/RoomManager';
-import { MatchmakingService, type MatchRequest } from '../../domain/services/MatchmakingService';
-import type { PlayerInfo, TimeControl } from '../../domain/entities/RoomEntity';
+import { MatchmakingService } from '../../domain/services/MatchmakingService';
+import type { FindMatchData, FindMatchResponse, SocketAck, MatchRequest } from '@chess-fw/contracts';
+import type { PlayerInfo, TimeControl } from '@chess-fw/contracts';
 
 /** Speed classification */
 function classifySpeed(initial: number, increment: number): string {
@@ -24,7 +25,7 @@ export function registerMatchmakingHandlers(
      * find_match: Player joins matchmaking queue
      * data: { timeControl: { initial, increment }, rating?: number }
      */
-    socket.on('find_match', (data: any, callback?: (res: any) => void) => {
+    socket.on('find_match', (data: FindMatchData, callback?: (res: FindMatchResponse) => void) => {
         const userId = socket.data.user?.id || socket.id;
         const name = socket.data.user?.name || 'Jugador';
         const avatar = socket.data.user?.image || '';
@@ -144,12 +145,12 @@ export function registerMatchmakingHandlers(
     /**
      * cancel_search: Player leaves matchmaking queue
      */
-    socket.on('cancel_search', (data: any, callback?: (res: any) => void) => {
+    socket.on('cancel_search', (_data: Record<string, never>, callback?: (res: SocketAck) => void) => {
         const userId = socket.data.user?.id || socket.id;
         const removed = matchmakingService.dequeue(userId);
 
         if (callback) {
-            callback({ success: true, wasInQueue: removed });
+            callback({ success: true });
         }
 
         if (removed) {

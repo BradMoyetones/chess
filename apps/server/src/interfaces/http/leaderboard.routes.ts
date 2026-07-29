@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { desc, sql } from 'drizzle-orm';
 import { user, userProfile } from '@chess-fw/db';
 import { eq } from 'drizzle-orm';
@@ -25,7 +26,7 @@ export function createLeaderboardRoutes(): Router {
             }
 
             // Map speed to column
-            const ratingColumnMap: Record<string, any> = {
+            const ratingColumnMap: Record<string, SQLiteColumn> = {
                 bullet: userProfile.ratingBullet,
                 blitz: userProfile.ratingBlitz,
                 rapid: userProfile.ratingRapid,

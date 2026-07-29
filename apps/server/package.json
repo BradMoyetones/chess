@@ -19,6 +19,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@chess-fw/contracts": "workspace:*",
     "@chess-fw/core": "workspace:*",
     "@chess-fw/db": "workspace:*",
     "better-auth": "^1.2.0",

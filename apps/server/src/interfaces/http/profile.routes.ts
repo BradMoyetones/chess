@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
+import { requireAuth, type AuthenticatedRequest } from './middleware';
 import { eq, like, or, desc, sql } from 'drizzle-orm';
 import { user, userProfile } from '@chess-fw/db';
 import type { UserProfile } from '@chess-fw/db';
@@ -6,23 +7,7 @@ import { db } from '../../infrastructure/db/connection';
 import { auth } from '../../infrastructure/auth/setup';
 import { fromNodeHeaders } from 'better-auth/node';
 
-// Auth middleware for protected routes
-async function requireAuth(req: any, res: any, next: any) {
-    try {
-        const session = await auth.api.getSession({
-            headers: fromNodeHeaders(req.headers),
-        });
-        if (!session?.user) {
-            res.status(401).json({ error: 'Unauthorized' });
-            return;
-        }
-        req.user = session.user;
-        req.session = session.session;
-        next();
-    } catch (error) {
-        res.status(401).json({ error: 'Unauthorized' });
-    }
-}
+
 
 export function createProfileRoutes(): Router {
     const router = Router();
@@ -31,9 +16,10 @@ export function createProfileRoutes(): Router {
      * GET /api/profile/me
      * Get the authenticated user's profile + stats
      */
-    router.get('/me', requireAuth, async (req: any, res) => {
+    router.get('/me', requireAuth, async (req: Request, res) => {
         try {
-            const userId = req.user.id;
+            const authReq = req as AuthenticatedRequest;
+            const userId = authReq.user.id;
 
             // Get or create profile
             let [profile] = await db.select().from(userProfile)
@@ -46,7 +32,7 @@ export function createProfileRoutes(): Router {
             }
 
             res.json({
-                user: req.user,
+                user: authReq.user,
                 profile,
             });
         } catch (error) {
@@ -59,9 +45,9 @@ export function createProfileRoutes(): Router {
      * PUT /api/profile/me
      * Update the authenticated user's profile (username, bio, country)
      */
-    router.put('/me', requireAuth, async (req: any, res) => {
+    router.put('/me', requireAuth, async (req: Request, res) => {
         try {
-            const userId = req.user.id;
+            const userId = (req as AuthenticatedRequest).user.id;
             const { username, bio, country } = req.body;
 
             // Validate username uniqueness if provided
@@ -74,7 +60,7 @@ export function createProfileRoutes(): Router {
                 }
             }
 
-            const updateData: Record<string, any> = {};
+            const updateData: Partial<{ username: string; bio: string; country: string }> = {};
             if (username !== undefined) updateData.username = username;
             if (bio !== undefined) updateData.bio = bio;
             if (country !== undefined) updateData.country = country;

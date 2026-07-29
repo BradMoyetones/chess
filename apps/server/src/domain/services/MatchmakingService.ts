@@ -1,22 +1,6 @@
 import type { Color } from '@chess-fw/core';
-import type { TimeControl, PlayerInfo } from '../entities/RoomEntity';
-
-export interface MatchRequest {
-    userId: string;
-    socketId: string;
-    name: string;
-    avatar: string;
-    rating: number;
-    timeControl: TimeControl;
-    speed: string;
-    preferredColor: Color | 'random';
-    timestamp: number;
-}
-
-export interface MatchResult {
-    player1: MatchRequest;
-    player2: MatchRequest;
-}
+import type { MatchRequest, MatchResult } from '@chess-fw/contracts';
+import type { TimeControl } from '@chess-fw/contracts';
 
 /** Speed classification */
 function classifySpeed(initial: number, increment: number): string {

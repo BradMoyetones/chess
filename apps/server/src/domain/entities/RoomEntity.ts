@@ -1,30 +1,9 @@
 import type { Color } from '@chess-fw/core';
 import { GameEntity } from './GameEntity';
 import { ClockService } from '../services/ClockService';
-
-export type Role = 'host' | 'guest';
-export type RoomStatus = 'waiting' | 'playing' | 'finished';
-
-export interface PlayerInfo {
-    socketId: string;
-    userId: string;
-    name: string;
-    avatar: string;
-    connected: boolean;
-    isBot?: boolean;
-    rating?: number;
-}
-
-export interface TimeControl {
-    initial: number;   // seconds
-    increment: number; // seconds
-}
-
-export interface GameResultData {
-    winner: Color | 'draw';
-    reason: string;
-    timestamp: number;
-}
+// Re-export from contracts (single source of truth)
+export type { Role, RoomStatus, PlayerInfo, TimeControl, GameResultData } from '@chess-fw/contracts';
+import type { Role, RoomStatus, PlayerInfo, TimeControl, GameResultData } from '@chess-fw/contracts';
 
 export class RoomEntity {
     readonly id: string;

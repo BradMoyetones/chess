@@ -1,4 +1,5 @@
 import type { Server, Socket } from 'socket.io';
+import type { RoomIdPayload, SocketAck, RematchAcceptResponse } from '@chess-fw/contracts';
 import type { RoomManager } from '../../domain/services/RoomManager';
 
 export function registerRematchHandlers(
@@ -6,7 +7,7 @@ export function registerRematchHandlers(
     io: Server,
     roomManager: RoomManager
 ): void {
-    socket.on('request_rematch', ({ roomId }: any, callback?: (res: any) => void) => {
+    socket.on('request_rematch', ({ roomId }: RoomIdPayload, callback?: (res: SocketAck) => void) => {
         const room = roomManager.getRoom(roomId);
         if (!room) {
             if (callback) callback({ success: false, error: 'Sala no encontrada' });
@@ -32,7 +33,7 @@ export function registerRematchHandlers(
         if (callback) callback({ success: true });
     });
 
-    socket.on('accept_rematch', ({ roomId }: any, callback?: (res: any) => void) => {
+    socket.on('accept_rematch', ({ roomId }: RoomIdPayload, callback?: (res: RematchAcceptResponse) => void) => {
         const room = roomManager.getRoom(roomId);
         if (!room) {
             if (callback) callback({ success: false, error: 'Sala no encontrada' });
@@ -65,7 +66,7 @@ export function registerRematchHandlers(
         if (callback) callback({ success: true, ...snapshot, hostColor: room.hostColor, guestColor });
     });
 
-    socket.on('decline_rematch', ({ roomId }: any, callback?: (res: any) => void) => {
+    socket.on('decline_rematch', ({ roomId }: RoomIdPayload, callback?: (res: SocketAck) => void) => {
         const room = roomManager.getRoom(roomId);
         if (!room) {
             if (callback) callback({ success: false, error: 'Sala no encontrada' });

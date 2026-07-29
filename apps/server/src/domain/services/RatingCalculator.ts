@@ -1,8 +1,4 @@
-export interface RatingChange {
-    newRating: number;
-    diff: number;
-}
-
+import type { RatingChange } from '@chess-fw/contracts';
 /**
  * ELO rating calculator with dynamic K-factor.
  */
@@ -24,6 +20,7 @@ export class RatingCalculator {
         const expected = 1 / (1 + Math.pow(10, (opponentRating - rating) / 400));
         const newRating = Math.round(rating + K * (score - expected));
         return {
+            oldRating: rating,
             newRating,
             diff: newRating - rating,
         };

@@ -1,19 +1,6 @@
 import type { Server, Socket } from 'socket.io';
 import type { RoomManager } from '../../domain/services/RoomManager';
-
-export interface LobbyRoom {
-    roomId: string;
-    host: {
-        name: string;
-        avatar: string;
-        rating?: number;
-    };
-    hostColor: string;
-    timeControl: { initial: number; increment: number } | null;
-    speed: string;
-    createdAt: number;
-}
-
+import type { LobbyRoom, GetOpenRoomsData, GetOpenRoomsResponse, SocketAck } from '@chess-fw/contracts';
 /** Speed classification */
 function classifySpeed(initial: number, increment: number): string {
     const totalTime = initial + (40 * increment);
@@ -33,7 +20,7 @@ export function registerLobbyHandlers(
      * get_open_rooms: List all rooms waiting for a player
      * Can optionally filter by speed
      */
-    socket.on('get_open_rooms', (data: any, callback?: (res: any) => void) => {
+    socket.on('get_open_rooms', (data: GetOpenRoomsData, callback?: (res: GetOpenRoomsResponse) => void) => {
         const speedFilter = data?.speed;
         const openRooms: LobbyRoom[] = [];
 
@@ -73,7 +60,7 @@ export function registerLobbyHandlers(
     /**
      * join_lobby: Join a lobby room to receive real-time updates about open rooms
      */
-    socket.on('join_lobby', (data: any, callback?: (res: any) => void) => {
+    socket.on('join_lobby', (_data: Record<string, never>, callback?: (res: SocketAck) => void) => {
         socket.join('lobby');
         console.log(`[LOBBY] ${socket.data.user?.name || socket.id} se unió al lobby`);
 
@@ -85,7 +72,7 @@ export function registerLobbyHandlers(
     /**
      * leave_lobby: Stop receiving lobby updates
      */
-    socket.on('leave_lobby', (data: any, callback?: (res: any) => void) => {
+    socket.on('leave_lobby', (_data: Record<string, never>, callback?: (res: SocketAck) => void) => {
         socket.leave('lobby');
         if (callback) {
             callback({ success: true });

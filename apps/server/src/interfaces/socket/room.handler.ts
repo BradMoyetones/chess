@@ -1,4 +1,5 @@
 import type { Server, Socket } from 'socket.io';
+import type { CreateRoomData, CreateRoomResponse, JoinRoomData, JoinRoomResponse } from '@chess-fw/contracts';
 import type { Color } from '@chess-fw/core';
 import type { RoomManager } from '../../domain/services/RoomManager';
 import type { PlayerInfo } from '../../domain/entities/RoomEntity';
@@ -17,7 +18,7 @@ export function registerRoomHandlers(
     io: Server,
     roomManager: RoomManager
 ): void {
-    socket.on('create_room', (data: any, callback?: (res: any) => void) => {
+    socket.on('create_room', (data: CreateRoomData, callback?: (res: CreateRoomResponse) => void) => {
         const { hostColor, timeControl, playerName, playerAvatar, playerId } = data;
 
         // Prefer authenticated user data, fallback to provided data
@@ -61,7 +62,7 @@ export function registerRoomHandlers(
         }
     });
 
-    socket.on('join_room', (data: any, callback?: (res: any) => void) => {
+    socket.on('join_room', (data: JoinRoomData, callback?: (res: JoinRoomResponse) => void) => {
         const { roomId, playerId, playerName, playerAvatar } = data;
         const room = roomManager.getRoom(roomId);
 

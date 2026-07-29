@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
+import { requireAuth, type AuthenticatedRequest } from './middleware';
 import { DrizzleFriendshipRepository } from '../../infrastructure/repositories/DrizzleFriendshipRepository';
 import { auth } from '../../infrastructure/auth/setup';
 import { fromNodeHeaders } from 'better-auth/node';
@@ -6,22 +7,7 @@ import { eq, or, desc } from 'drizzle-orm';
 import { user } from '@chess-fw/db';
 import { db } from '../../infrastructure/db/connection';
 
-// Auth middleware
-async function requireAuth(req: any, res: any, next: any) {
-    try {
-        const session = await auth.api.getSession({
-            headers: fromNodeHeaders(req.headers),
-        });
-        if (!session?.user) {
-            res.status(401).json({ error: 'Unauthorized' });
-            return;
-        }
-        req.user = session.user;
-        next();
-    } catch (error) {
-        res.status(401).json({ error: 'Unauthorized' });
-    }
-}
+
 
 export function createSocialRoutes(friendshipRepo: DrizzleFriendshipRepository): Router {
     const router = Router();
@@ -33,7 +19,7 @@ export function createSocialRoutes(friendshipRepo: DrizzleFriendshipRepository):
      * POST /api/social/friend-request
      * Send a friend request
      */
-    router.post('/friend-request', async (req: any, res) => {
+    router.post('/friend-request', async (req: Request, res) => {
         try {
             const { addresseeId } = req.body;
             if (!addresseeId) {
@@ -41,7 +27,7 @@ export function createSocialRoutes(friendshipRepo: DrizzleFriendshipRepository):
                 return;
             }
 
-            if (addresseeId === req.user.id) {
+            if (addresseeId === (req as AuthenticatedRequest).user.id) {
                 res.status(400).json({ error: 'Cannot send friend request to yourself' });
                 return;
             }
@@ -54,10 +40,10 @@ export function createSocialRoutes(friendshipRepo: DrizzleFriendshipRepository):
                 return;
             }
 
-            const friendship = await friendshipRepo.sendRequest(req.user.id, addresseeId);
+            const friendship = await friendshipRepo.sendRequest((req as AuthenticatedRequest).user.id, addresseeId);
             res.status(201).json({ friendship });
-        } catch (error: any) {
-            if (error.message === 'Friendship request already exists') {
+        } catch (error: unknown) {
+            if (error instanceof Error && error.message === 'Friendship request already exists') {
                 res.status(409).json({ error: error.message });
                 return;
             }
@@ -70,13 +56,13 @@ export function createSocialRoutes(friendshipRepo: DrizzleFriendshipRepository):
      * POST /api/social/friend-request/:id/accept
      * Accept a friend request
      */
-    router.post('/friend-request/:id/accept', async (req: any, res) => {
+    router.post('/friend-request/:id/accept', async (req: Request, res) => {
         try {
-            const friendship = await friendshipRepo.acceptRequest(req.params.id, req.user.id);
+            const friendship = await friendshipRepo.acceptRequest(req.params.id as string, (req as AuthenticatedRequest).user.id);
             res.json({ friendship });
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[API] Error accepting friend request:', error);
-            res.status(400).json({ error: error.message });
+            res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
         }
     });
 
@@ -84,13 +70,13 @@ export function createSocialRoutes(friendshipRepo: DrizzleFriendshipRepository):
      * POST /api/social/friend-request/:id/decline
      * Decline/cancel a friend request
      */
-    router.post('/friend-request/:id/decline', async (req: any, res) => {
+    router.post('/friend-request/:id/decline', async (req: Request, res) => {
         try {
-            await friendshipRepo.declineRequest(req.params.id, req.user.id);
+            await friendshipRepo.declineRequest(req.params.id as string, (req as AuthenticatedRequest).user.id);
             res.json({ success: true });
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[API] Error declining friend request:', error);
-            res.status(400).json({ error: error.message });
+            res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
         }
     });
 
@@ -98,9 +84,9 @@ export function createSocialRoutes(friendshipRepo: DrizzleFriendshipRepository):
      * GET /api/social/friends
      * List all accepted friends
      */
-    router.get('/friends', async (req: any, res) => {
+    router.get('/friends', async (req: Request, res) => {
         try {
-            const friends = await friendshipRepo.getFriends(req.user.id);
+            const friends = await friendshipRepo.getFriends((req as AuthenticatedRequest).user.id);
             res.json({ friends });
         } catch (error) {
             console.error('[API] Error fetching friends:', error);
@@ -112,9 +98,9 @@ export function createSocialRoutes(friendshipRepo: DrizzleFriendshipRepository):
      * GET /api/social/pending
      * List pending friend requests
      */
-    router.get('/pending', async (req: any, res) => {
+    router.get('/pending', async (req: Request, res) => {
         try {
-            const requests = await friendshipRepo.getPendingRequests(req.user.id);
+            const requests = await friendshipRepo.getPendingRequests((req as AuthenticatedRequest).user.id);
             res.json({ requests });
         } catch (error) {
             console.error('[API] Error fetching pending requests:', error);
@@ -126,13 +112,13 @@ export function createSocialRoutes(friendshipRepo: DrizzleFriendshipRepository):
      * DELETE /api/social/friend/:id
      * Remove a friend
      */
-    router.delete('/friend/:id', async (req: any, res) => {
+    router.delete('/friend/:id', async (req: Request, res) => {
         try {
-            await friendshipRepo.removeFriend(req.params.id, req.user.id);
+            await friendshipRepo.removeFriend(req.params.id as string, (req as AuthenticatedRequest).user.id);
             res.json({ success: true });
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[API] Error removing friend:', error);
-            res.status(400).json({ error: error.message });
+            res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
         }
     });
 

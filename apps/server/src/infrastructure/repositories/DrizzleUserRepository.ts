@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, type SQL } from 'drizzle-orm';
 import { userProfile } from '@chess-fw/db';
 import type { UserProfile, NewUserProfile, Speed } from '@chess-fw/db';
 import type { UserRepository } from '../../domain/ports/UserRepository.port';
@@ -27,7 +27,7 @@ export class DrizzleUserRepository implements UserRepository {
         const ratingCol = RATING_COLUMN_MAP[speed];
         if (!ratingCol) return;
 
-        const updateData: Record<string, any> = {
+        const updateData: Record<string, number | SQL> = {
             [ratingCol]: newRating,
             gamesPlayed: sql`${userProfile.gamesPlayed} + 1`,
         };
