@@ -376,6 +376,13 @@ importers:
         version: 6.0.3
 
   packages/contracts:
+    dependencies:
+      '@chess-fw/core':
+        specifier: workspace:*
+        version: link:../core
+      '@chess-fw/db':
+        specifier: workspace:*
+        version: link:../db
     devDependencies:
       tsup:
         specifier: ^8.5.1

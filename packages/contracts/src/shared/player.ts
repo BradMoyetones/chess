@@ -1,14 +1,11 @@
-/** Color identifier (matches chess.js) */
-export type Color = 'w' | 'b';
+// Re-export Color from the single source of truth
+export type { Color } from '@chess-fw/core';
 
 /** Player role in a room */
 export type Role = 'host' | 'guest';
 
 /** Room lifecycle status */
 export type RoomStatus = 'waiting' | 'playing' | 'finished';
-
-/** Speed classification */
-export type Speed = 'ultraBullet' | 'bullet' | 'blitz' | 'rapid' | 'classical';
 
 /** Time control settings */
 export interface TimeControl {

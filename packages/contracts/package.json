@@ -15,6 +15,10 @@
     "build": "tsup src/index.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts --format esm --dts --watch"
   },
+  "dependencies": {
+    "@chess-fw/core": "workspace:*",
+    "@chess-fw/db": "workspace:*"
+  },
   "devDependencies": {
     "tsup": "^8.5.1",
     "typescript": "^6.0.3"
