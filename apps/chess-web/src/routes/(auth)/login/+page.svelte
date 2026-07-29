@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { authClient } from '$lib/client';
+	import { authClient, defaultCallbackURL } from '$lib/client';
 	import { GoogleLogo } from '$lib/components/icons';
 	import { Button } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils';
@@ -23,14 +23,15 @@
 				<div class="h-px w-full border-b"></div>
 			</div>
 			<div class="flex items-center justify-center">
-				<Button 
-                    class="w-full"
-                    onclick={async () => {
-                        await authClient.signIn.social({
-                            provider: "google",
-                        });
-                    }}
-                >
+				<Button
+					class="w-full"
+					onclick={async () => {
+						await authClient.signIn.social({
+							provider: 'google',
+							callbackURL: defaultCallbackURL
+						});
+					}}
+				>
 					<GoogleLogo />
 					Inicia Sesión con Google
 				</Button>
