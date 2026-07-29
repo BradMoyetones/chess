@@ -3,14 +3,17 @@ import type { Color } from '@chess-fw/core';
 import type { RoomManager } from '../../domain/services/RoomManager';
 
 import type { GamePersistenceService } from '../../application/GamePersistenceService';
+import type { MatchmakingService } from '../../domain/services/MatchmakingService';
 
 export function registerConnectionHandlers(
     socket: Socket,
     io: Server,
     roomManager: RoomManager,
-    persistenceService: GamePersistenceService
+    persistenceService: GamePersistenceService,
+    matchmakingService: MatchmakingService
 ): void {
     socket.on('disconnect', () => {
+        matchmakingService.dequeueBySocketId(socket.id);
         console.log(`[-] Cliente desconectado: ${socket.id}`);
 
         const rooms = roomManager.findRoomsBySocketId(socket.id);

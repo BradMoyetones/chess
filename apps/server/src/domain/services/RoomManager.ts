@@ -96,6 +96,28 @@ export class RoomManager {
         }, GC_INTERVAL_MS);
     }
 
+    /** Get all rooms that are waiting for a player (for lobby listing) */
+    getOpenRooms(): RoomEntity[] {
+        const open: RoomEntity[] = [];
+        for (const room of this.rooms.values()) {
+            if (room.status === 'waiting' && room.host.connected && !room.guest) {
+                open.push(room);
+            }
+        }
+        return open;
+    }
+
+    /** Get counts of rooms by status */
+    getRoomStats(): { waiting: number; playing: number; finished: number; total: number } {
+        let waiting = 0, playing = 0, finished = 0;
+        for (const room of this.rooms.values()) {
+            if (room.status === 'waiting') waiting++;
+            else if (room.status === 'playing') playing++;
+            else finished++;
+        }
+        return { waiting, playing, finished, total: this.rooms.size };
+    }
+
     destroy(): void {
         if (this.gcInterval) clearInterval(this.gcInterval);
         for (const timer of this.disconnectTimers.values()) {

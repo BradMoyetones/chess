@@ -29,6 +29,8 @@ import { registerGameHandlers } from './src/interfaces/socket/game.handler';
 import { registerRematchHandlers } from './src/interfaces/socket/rematch.handler';
 import { registerBotHandlers } from './src/interfaces/socket/bot.handler';
 import { registerConnectionHandlers } from './src/interfaces/socket/connection.handler';
+import { registerMatchmakingHandlers } from './src/interfaces/socket/matchmaking.handler';
+import { registerLobbyHandlers } from './src/interfaces/socket/lobby.handler';
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 import { GamePersistenceService } from './src/application/GamePersistenceService';
@@ -38,6 +40,7 @@ import { createGameRoutes } from './src/interfaces/http/game.routes';
 import { createProfileRoutes } from './src/interfaces/http/profile.routes';
 import { createSocialRoutes } from './src/interfaces/http/social.routes';
 import { createLeaderboardRoutes } from './src/interfaces/http/leaderboard.routes';
+import { createLobbyRoutes } from './src/interfaces/http/lobby.routes';
 import { DrizzleFriendshipRepository } from './src/infrastructure/repositories/DrizzleFriendshipRepository';
 
 // ─── Stockfish Binary Resolution ─────────────────────────────────────────────
@@ -94,6 +97,12 @@ const roomManager = new RoomManager((roomId) => {
     io.socketsLeave(roomId);
 });
 
+// ─── Matchmaking ─────────────────────────────────────────────────────────────
+import { MatchmakingService } from './src/domain/services/MatchmakingService';
+const matchmakingService = new MatchmakingService();
+
+app.use('/api/lobby', createLobbyRoutes(roomManager, matchmakingService));
+
 // ─── Socket Auth Middleware ──────────────────────────────────────────────────
 io.use(async (socket, next) => {
     try {
@@ -125,7 +134,9 @@ io.on('connection', (socket: Socket) => {
     registerGameHandlers(socket, io, roomManager, persistenceService);
     registerRematchHandlers(socket, io, roomManager);
     registerBotHandlers(socket, stockfishService);
-    registerConnectionHandlers(socket, io, roomManager, persistenceService);
+    registerConnectionHandlers(socket, io, roomManager, persistenceService, matchmakingService);
+    registerMatchmakingHandlers(socket, io, roomManager, matchmakingService);
+    registerLobbyHandlers(socket, io, roomManager);
 });
 
 // ─── Start Server ────────────────────────────────────────────────────────────

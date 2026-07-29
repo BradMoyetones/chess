@@ -3,6 +3,15 @@ import type { Color } from '@chess-fw/core';
 import type { RoomManager } from '../../domain/services/RoomManager';
 import type { PlayerInfo } from '../../domain/entities/RoomEntity';
 
+function classifySpeed(initial: number, increment: number): string {
+    const totalTime = initial + (40 * increment);
+    if (totalTime < 30) return 'ultraBullet';
+    if (totalTime < 180) return 'bullet';
+    if (totalTime < 480) return 'blitz';
+    if (totalTime < 1500) return 'rapid';
+    return 'classical';
+}
+
 export function registerRoomHandlers(
     socket: Socket,
     io: Server,
@@ -30,6 +39,15 @@ export function registerRoomHandlers(
 
         const room = roomManager.createRoom(host, finalHostColor, timeControl ?? null);
         socket.join(room.id);
+
+        io.to('lobby').emit('room_created', {
+            roomId: room.id,
+            host: { name, avatar, rating: socket.data.user?.rating },
+            hostColor: finalHostColor,
+            timeControl: timeControl ?? null,
+            speed: timeControl ? classifySpeed(timeControl.initial, timeControl.increment) : 'classical',
+            createdAt: room.createdAt,
+        });
 
         console.log(`[ROOM] ${name} creó la sala ${room.id} (Color: ${finalHostColor})`);
 
@@ -121,6 +139,9 @@ export function registerRoomHandlers(
         };
 
         room.startGame();
+
+        io.to('lobby').emit('room_filled', { roomId });
+
         socket.join(roomId);
 
         console.log(`[ROOM] ${name} se unió a ${roomId} como Guest (Color: ${guestColor})`);
