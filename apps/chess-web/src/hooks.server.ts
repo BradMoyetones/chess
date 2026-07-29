@@ -1,3 +1,4 @@
+import { authClient } from '$lib/client';
 import type { Handle } from '@sveltejs/kit';
 
 /**
@@ -10,16 +11,17 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 
 	if (cookieHeader) {
 		try {
-			const response = await fetch('http://localhost:3001/api/auth/get-session', {
-				headers: { cookie: cookieHeader },
+			const response = await authClient.getSession({
+				fetchOptions: {
+					headers: {
+						"cookie": cookieHeader
+					}
+				}
 			});
 
-			if (response.ok) {
-				const data = await response.json();
-				if (data?.user) {
-					event.locals.user = data.user;
-					event.locals.session = data.session;
-				}
+			if (response.data && !response.error) {
+				event.locals.user = response.data.user;
+				event.locals.session = response.data.session;
 			}
 		} catch {
 			// Express server not available; user remains unauthenticated

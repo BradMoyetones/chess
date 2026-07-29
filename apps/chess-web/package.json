@@ -62,8 +62,10 @@
 	},
 	"dependencies": {
 		"@chess-fw/core": "workspace:*",
+		"@chess-fw/contracts": "workspace:*",
 		"@fontsource-variable/outfit": "^5.3.0",
 		"@humanspeak/svelte-motion": "^0.7.20",
+		"axios": "^1.18.1",
 		"mode-watcher": "^1.1.0",
 		"svelte-sonner": "^1.1.1"
 	}

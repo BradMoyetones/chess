@@ -1,4 +1,4 @@
-<script>
+<script lang="ts" module>
 	import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar';
 	import { Button } from '$lib/components/ui/button';
 	import { Container } from '$lib/components/ui/container';
@@ -9,10 +9,44 @@
 	import Plus from '@lucide/svelte/icons/plus';
 	import Minus from '@lucide/svelte/icons/minus';
 	import * as Table from '$lib/components/ui/table/index.js';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import { authClient, defaultCallbackURL, ERROR_MESSAGES } from '$lib/client.js';
+	import { AVAILABLE_PROVIDERS } from "$lib/client.js";
+	import { DiscordLogo, GoogleLogo } from '$lib/components/icons/index.js';
+	import { page } from '$app/state';
+	import { toast } from 'svelte-sonner';
+	import { goto, invalidateAll } from '$app/navigation';
+</script>
 
+<script lang="ts">
 	let { data } = $props();
 
 	let user = $derived(data.session?.user ?? null);
+
+	let profileData = $derived(data.profileResponse);
+
+	let games = $derived(data.gamesResponse.games);
+	let pagination = $derived(data.gamesResponse.pagination);
+
+	let hasNextPage = $derived(pagination.offset + pagination.limit < pagination.count);
+	let hasPrevPage = $derived(pagination.offset > 0);
+	let nextOffset = $derived(pagination.offset + pagination.limit);
+	let prevOffset = $derived(Math.max(0, pagination.offset - pagination.limit));
+
+	let linkedAccounts = $derived(data.linkedAccounts);
+
+	$effect(() => {
+		const errorCode = page.url.searchParams.get('error')
+		if (errorCode) {
+			const mensaje = ERROR_MESSAGES[errorCode] || ERROR_MESSAGES['default'];
+			
+			toast.error('Error de vinculación', { description: mensaje })
+			const cleanUrl = page.url.pathname;
+			goto(cleanUrl, { replaceState: true, noScroll: true });
+		}
+	})
+	
 </script>
 
 <Container class="mt-4 px-2">
@@ -24,7 +58,7 @@
 			</Avatar>
 			<div class="flex flex-col gap-1">
 				<div class="flex items-center gap-2">
-					<h1 class="text-xl font-bold">BradfieldM</h1>
+					<h1 class="text-xl font-bold">{profileData.profile?.username}</h1>
 					<ul class="f32">
 						<li class="flag ve"></li>
 					</ul>
@@ -40,7 +74,16 @@
 				<div class="flex items-center gap-4 md:gap-8">
 					<div class="flex items-center gap-1">
 						<Calendar class="size-3 shrink-0" />
-						<p class="text-sm text-muted-foreground">Se unió el de julio de 2026</p>
+						<p class="text-sm text-muted-foreground">
+							Se unió el {
+								profileData.user.createdAt &&
+								new Date(profileData.user.createdAt).toLocaleDateString("es-CO", {
+									year: "numeric",
+									month: "long",
+									day: "numeric"
+								})
+							}
+						</p>
 					</div>
 					<div class="flex items-center gap-1">
 						<Users class="size-3 shrink-0" />
@@ -60,10 +103,70 @@
 		</div>
 	</div>
 
+	<div class="mt-4 rounded-lg border p-4 space-y-2">
+		<h1 class="text-md font-bold">Conecta tus cuentas sociales</h1>
+		<div class="space-x-2 flex flex-wrap">
+			{#each AVAILABLE_PROVIDERS as provider}
+				<Button 
+					variant={"outline"}
+					onclick={async () => {
+						if (linkedAccounts.data?.some((account) => account.providerId === provider.id)) {
+							await authClient.unlinkAccount({
+								providerId: provider.id,
+							})
+							await invalidateAll()
+						} else {
+							await authClient.linkSocial({
+								provider: provider.id,
+								callbackURL: defaultCallbackURL,
+								errorCallbackURL: defaultCallbackURL
+							})
+							await invalidateAll()
+						}
+					}}
+				>
+					{#if provider.id === 'google'}
+						<GoogleLogo class="size-4" />
+					{/if}
+					{#if provider.id === 'discord'}
+						<DiscordLogo class="size-4" />
+					{/if}
+					{#if 
+						linkedAccounts.data?.some((account) => account.providerId === provider.id)
+					}
+						Unlink {provider.name}
+					{:else}
+						Link {provider.name}
+					{/if}
+				</Button>
+			{/each}
+		</div>
+	</div>
+
 	<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-4">
 		<div class="lg:col-span-1">
 			<div class="rounded-lg border p-4">
-				<h2>Estadísticas</h2>
+				<h2 class="text-lg font-semibold">Estadísticas</h2>
+				<ul class="grid grid-cols-2 gap-2 mt-2">
+					<li class="border-b text-muted-foreground">Blitz</li>
+					<li class="border-b">{profileData.profile?.ratingBlitz}</li>
+					<li class="border-b text-muted-foreground">Bullet</li>
+					<li class="border-b">{profileData.profile?.ratingBullet}</li>
+					<li class="border-b text-muted-foreground">Rapid</li>
+					<li class="border-b">{profileData.profile?.ratingRapid}</li>
+					<li class="border-b text-muted-foreground">Classical</li>
+					<li class="border-b">{profileData.profile?.ratingClassical}</li>
+					<li class="border-b text-muted-foreground">Games Played</li>
+					<li class="border-b">{profileData.profile?.gamesPlayed}</li>
+					<li class="border-b text-muted-foreground">Wins</li>
+					<li class="border-b">{profileData.profile?.wins}</li>
+					<li class="border-b text-muted-foreground">Losses</li>
+					<li class="border-b">{profileData.profile?.losses}</li>
+					<li class="border-b text-muted-foreground">Draws</li>
+					<li class="border-b">{profileData.profile?.draws}</li>
+					<li class="text-muted-foreground">Last Seen At</li>
+					<li>{profileData.profile?.lastSeenAt ?? "--"}</li>
+				</ul>
 			</div>
 		</div>
 		<div class="lg:col-span-3">
@@ -81,52 +184,112 @@
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
-						<Table.Row>
-							<Table.Cell class="font-medium">
-								<div class="grid">
-									<div class="flex items-center gap-2">
-										<h1 class="text-md font-bold">
-											BradfieldM <span class="text-muted-foreground font-normal"
-												>(2500)</span
-											>
-										</h1>
-										<ul class="f16">
-											<li class="flag ve"></li>
-										</ul>
-									</div>
-									<div class="flex items-center gap-2">
-										<h1 class="text-md font-bold">
-											Anish Giri <span class="text-muted-foreground font-normal"
-												>(2700)</span
-											>
-										</h1>
-										<ul class="f16">
-											<li class="flag ne"></li>
-										</ul>
-									</div>
-								</div>
-							</Table.Cell>
-							<Table.Cell>
-								<div class="grid grid-cols-2 items-center w-fit">
+						{#if games.length === 0}
+							<Table.Row>
+								<Table.Cell colspan={4} class="text-center">
+									<p class="text-muted-foreground">No games</p>
+								</Table.Cell>
+							</Table.Row>
+						{/if}
+						{#each games as game}
+							<Table.Row>
+								<Table.Cell class="font-medium">
 									<div class="grid">
-										<span class="text-muted-foreground">1</span>
-										<span class="text-muted-foreground">0</span>
+										<div class="flex items-center gap-2">
+											<h1 class="text-md font-bold">
+												{game.whiteId} <span
+													class="font-normal text-muted-foreground"
+													>(2500)</span
+												>
+											</h1>
+											<ul class="f16">
+												<li class="flag ve"></li>
+											</ul>
+										</div>
+										<div class="flex items-center gap-2">
+											<h1 class="text-md font-bold">
+												{game.blackId} <span
+													class="font-normal text-muted-foreground"
+													>(2700)</span
+												>
+											</h1>
+											<ul class="f16">
+												<li class="flag ne"></li>
+											</ul>
+										</div>
 									</div>
-                                    <div>
-                                        <div class="rounded border text-chess bg-chess/20">
-                                            <Plus class="size-4" />
-                                        </div>
-                                        <div class="rounded border text-destructive bg-destructive/20">
-                                            <Minus class="size-4" />
-                                        </div>
-                                    </div>
-								</div>
-							</Table.Cell>
-							<Table.Cell>20</Table.Cell>
-							<Table.Cell class="text-end">Feb 15, 2026</Table.Cell>
-						</Table.Row>
+								</Table.Cell>
+								<Table.Cell>
+									<div class="grid w-fit grid-cols-2 items-center">
+										<div class="grid">
+											{#if game.winner === "w"}
+												<span class="text-muted-foreground">1</span>
+												<span class="text-muted-foreground">0</span>
+											{/if}
+											{#if game.winner === "b"}
+												<span class="text-muted-foreground">0</span>
+												<span class="text-muted-foreground">1</span>
+											{/if}
+											{#if game.winner === "draw"}
+												<span class="text-muted-foreground">1/2</span>
+												<span class="text-muted-foreground">1/2</span>
+											{/if}
+										</div>
+										<div>
+											{#if game.winner === "w"}
+												<div class="rounded border bg-chess/20 text-chess">
+													<Plus class="size-4" />
+												</div>
+											{/if}
+											{#if game.winner === "b"}
+												<div
+													class="rounded border bg-destructive/20 text-destructive"
+												>
+													<Minus class="size-4" />
+												</div>
+											{/if}
+											{#if game.winner === "draw"}
+												<div
+													class="rounded border bg-destructive/20 text-destructive"
+												>
+													<Minus class="size-4" />
+												</div>
+											{/if}
+										</div>
+									</div>
+								</Table.Cell>
+								<Table.Cell>
+									{game.halfMoves / 2}
+								</Table.Cell>
+								<Table.Cell class="text-end">
+									{new Date(game.createdAt).toLocaleDateString("en-US", {
+										month: "short",
+										day: "numeric",
+										year: "numeric"
+									})}
+								</Table.Cell>
+							</Table.Row>
+						{/each}
 					</Table.Body>
 				</Table.Root>
+			</div>
+			<div class="flex justify-end gap-2 py-2">
+				<Button
+					variant="secondary"
+					size="icon"
+					disabled={!hasPrevPage}
+					href={`?limit=${pagination.limit}&offset=${prevOffset}`}
+				>
+					<ChevronLeft />
+				</Button>
+				<Button
+					variant="secondary"
+					size="icon"
+					disabled={!hasNextPage}
+					href={`?limit=${pagination.limit}&offset=${nextOffset}`}
+				>
+					<ChevronRight />
+				</Button>
 			</div>
 		</div>
 	</div>
