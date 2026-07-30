@@ -88,55 +88,7 @@ function getNormalizedPieces() {
     return { pieces: normalized, maxLines, targetWidth };
 }
 
-// ══════════════════════════════════════════════════
-//  INICIALIZACIÓN DEL MOTOR
-// ══════════════════════════════════════════════════
-// Configuramos un ThemeManager tonto para que HeadlessBoard no se queje
-const dummyTheme = {
-    id: "dummy", 
-    name: "Dummy", 
-    board: { 
-        lightSquareColor: "", 
-        darkSquareColor: "" 
-    }, 
-    pieces: {
-        b: {
-            b: "",
-            w: ""
-        },
-        k: {
-            b: "",
-            w: ""
-        },
-        n: {
-            b: "",
-            w: ""
-        },
-        p: {
-            b: "",
-            w: ""
-        },
-        q: {
-            b: "",
-            w: ""
-        },
-        r: {
-            b: "",
-            w: ""
-        }
-    },
-    sounds: {
-        capture: "",
-        check: "",
-        move: "",
-        gameEnd: "",
-    }
-};
-
-const app = new ChessApp({
-    fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Opcional - Por defecto empieza en la posición inicial
-    mode: "PLAY" // Opcional - Por defecto es "PLAY" para jugar y "ANALYZE" para analizar
-});
+const app = new ChessApp();
 const eventBus = app.events;
 const engine = app.engine;
 const historyManager = app.engine;
